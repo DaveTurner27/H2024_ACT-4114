@@ -1,0 +1,7 @@
+# Ignorer les fichier d'historique de commandes en R
+*.Rhistory
+
+# Ignorer les fichiers produit par un knit en rmd
+FREQ_TPL_FRANCE_EQ13.txt
+
+# Autres à voir...
