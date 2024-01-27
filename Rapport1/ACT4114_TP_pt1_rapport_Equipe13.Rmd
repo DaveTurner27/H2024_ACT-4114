@@ -1,0 +1,68 @@
+---
+output:
+  pdf_document:
+    includes:
+      before_body: TP-title.tex
+      in_header: preamble-latex.tex
+---
+
+\centering
+
+\clearpage
+
+\tableofcontents
+
+```{=tex}
+\justify  
+\clearpage
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r paquetages, message=FALSE, eval=TRUE, include=FALSE, echo = FALSE}
+### Liste des paquetages
+liste.paquetage <- c("ggplot2", "dplyr")
+
+### On installe les paquetages de la liste qu'on a pas déjà
+inst <- liste.paquetage %in% installed.packages()
+if(length(liste.paquetage[!inst]) > 0) install.packages(liste.paquetage[!inst])
+
+lapply(liste.paquetage, require, character.only = TRUE)
+
+```
+
+# Introduction
+
+Écrire l'introduction ...
+
+# Analyse exploratoire des données
+
+## Corrections et modifications
+
+Écrire sur la modifications ou corrections dans le jeux de données
+
+# Traitement des valeurs manquantes
+
+# Analyse en composantes principales
+
+# Création de nouvelles variables explicatives
+
+# Classification hiérarchique
+
+# Algorithme des k-moyennes
+
+# Conclusion
+
+# Bibliographie
+
+# Annexe
+
+## Description du jeu de données
+
+Comme sur le forum, mais sans fautes d' orthographes.
+
+## Déclaration de l’utilisation de l’intelligence artificielle
+générative
+
+Il faut insérer la déclaration complétée ici.
