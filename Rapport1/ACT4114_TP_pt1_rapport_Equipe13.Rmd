@@ -34,7 +34,21 @@ lapply(liste.paquetage, require, character.only = TRUE)
 
 # Introduction
 
-Écrire l'introduction ...
+L'objectif final de ce travail est de modéliser la fréquence des réclamations de la couverture de responsabilité civile (dommages matériels) en assurance automobile pour un portefeuille français. Pour le risque $j$, le nombre de réclamations sera noter par $N_j$. Pour procéder à la modélisation, on utilise les caractéristiques fournit dans notre jeux de données. On notera, pour l'assuré $j$, le vecteur de variables explicatives par $X_j$. On tiendra aussi en compte l'exposition au risque dans notre modèle. Cette dernière se présente sous la forme de nombre de jours à risque avec un maximum de 1 an (365 jours). Cette variable sera transformer en la divisant par 365 pour obtenir une proportion d'année couverte. On notera l'exposition du risque $j$ par $t_j$. Dans le tableau de données original on retrouve :
+
+-   la variable de fréquence $N$ sous le nom `Numtppd`
+
+-   La variable d'exposition (version nombre de jours) sous le nom `Exppdays`.
+
+En ce qui concerne le jeu de données, il est disponible directement en `R` dans le paquetage `CASdatasets`. Plus précisément c'est le jeux de données `pg15training`. Les données ont été utilisées par l'institut française des actuaires dans un concours/jeux de tarification. Elles proviennent d'assureurs automobile privées inconnus. La matrice contient 2 ans d'observations (2009 et 2010) et environ 100 000 contrats. Voici quelques informations pertinentes avant de débuter l'analyse :
+
+-   l'âge minimal pour conduire en France est de 18 ans
+
+-   la couverture étudiée est obligatoire
+
+-   certaines variables catégorielles contiennent des groupes dont la signification demeure non spécifiée pour des raisons de confidentialités.
+
+Pour plus d'information sur les données il est possible d'aller voir la documentation sur CRAN ou bien simplement de faire la commande suivante en `R` : `help(pg15training)`. Finalement, le jeux de données `pg15princing` du même paquetage pourrait être utilisé pour faire de la validation croisée.
 
 # Analyse exploratoire des données
 
@@ -63,6 +77,7 @@ lapply(liste.paquetage, require, character.only = TRUE)
 Comme sur le forum, mais sans fautes d' orthographes.
 
 ## Déclaration de l’utilisation de l’intelligence artificielle
+
 générative
 
 Il faut insérer la déclaration complétée ici.
