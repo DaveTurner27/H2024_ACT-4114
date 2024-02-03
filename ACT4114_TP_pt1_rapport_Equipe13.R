@@ -41,6 +41,66 @@ data.analyse <- pg15training
 str(data.analyse)
 summary(data.analyse)
 
+# Polices en double
+ids <- data.analyse[duplicated(data.analyse$PolNum), "PolNum"]
+data.analyse[data.analyse$PolNum %in% ids[1], ]
+data.analyse[data.analyse$PolNum %in% ids[2], ]
+# les 21 premières ?
+(data.analyse$PolNum %in% ids)[1:22] # oui, on doit les enlever
+data.analyse <- data.analyse[-(1:21), ]
+any(duplicated(data.analyse$PolNum))
+nrow(data.analyse)
+
 ##
 ## 3. Analyse exploratoire des données
 ##
+colnames(data.analyse)
+
+# Numtppd (endogène)
+
+# Exppdays (exposition)
+
+# Variables exclues :
+# - Polnum
+# - Numtpbi
+# - Indtppd
+# - Indtpbi
+
+# CalYear
+table(data.analyse$CalYear)
+
+# Gender
+table(data.analyse$Gender)
+ggplot(data.analyse, aes(x=Numtppd))+
+    geom_bar(aes(y = after_stat(prop), fill=Gender), position="dodge")+
+    scale_y_continuous(labels = scales::percent)
+data.analyse %>% group_by(Gender) %>% summarise(Moyenne = mean(Numtppd))
+
+# Type
+table(data.analyse$Type)
+ggplot(data.analyse, aes(x=Numtppd))+
+    geom_bar(aes(y = after_stat(prop), fill=Type), position="dodge")+
+    scale_y_continuous(labels = scales::percent)
+
+# Category
+
+# Occupation
+
+# Age
+
+# Group1
+
+# Bonus
+
+# Poldur
+
+# Value
+
+# Adind
+
+# SubGroup2
+
+# Group2
+
+# Density
+
