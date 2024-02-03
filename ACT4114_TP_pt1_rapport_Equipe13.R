@@ -68,6 +68,10 @@ colnames(data.analyse)
 
 # CalYear
 table(data.analyse$CalYear)
+ggplot(data.analyse, aes(x=Numtppd))+
+    geom_bar(aes(y = after_stat(prop), fill=as.factor(CalYear)), position="dodge")+
+    scale_y_continuous(labels = scales::percent)
+data.analyse %>% group_by(as.factor(CalYear)) %>% summarise(Moyenne = mean(Numtppd))
 
 # Gender
 table(data.analyse$Gender)
@@ -81,12 +85,31 @@ table(data.analyse$Type)
 ggplot(data.analyse, aes(x=Numtppd))+
     geom_bar(aes(y = after_stat(prop), fill=Type), position="dodge")+
     scale_y_continuous(labels = scales::percent)
+data.analyse %>% group_by(Type) %>% summarise(Moyenne = mean(Numtppd))
 
 # Category
 
 # Occupation
 
 # Age
+table(data.analyse$Age)
+plot(table(data.analyse$Age))
+
+# Moyenne de réclamations par age
+moy_par_age <- data.analyse %>% group_by(Age) %>% summarise(
+    Count=length(Numtppd), Moyenne=mean(Numtppd), dev_std=sd(Numtppd)
+    )
+moy_par_age
+# IC approximatif 80 % par age
+moy_par_age$low_ic <- moy_par_age$Moyenne + qnorm(0.1)*moy_par_age$dev_std/sqrt(moy_par_age$Count)
+moy_par_age$upp_ic <- moy_par_age$Moyenne + qnorm(0.9)*moy_par_age$dev_std/sqrt(moy_par_age$Count)
+# graphique moyenne d'accidents par age avec IC 80 %
+ggplot(moy_par_age) + geom_point(aes(x=Age, y=Moyenne), col="darkblue", size=2.5) +
+    geom_errorbar(aes(x=Age, ymin=low_ic, ymax=upp_ic), width=0.5) +
+    labs(title = "Moyenne de réclamation pour la couverture étudiée\nen fonction de l'age avec un IC approximatif 80%",
+         y="Moyenne des réclamtations")
+# graphique de l'ecart-type estimé en fct de l'age
+ggplot(moy_par_age) + geom_point(aes(x=Age, y=dev_std))
 
 # Group1
 
