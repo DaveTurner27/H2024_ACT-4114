@@ -20,7 +20,7 @@
 ##
 
 # Paquetages requis
-liste.paquetage <- c("ggplot2", "dplyr", "CASdatasets")
+liste.paquetage <- c("ggplot2", "dplyr", "CASdatasets", "MASS")
 
 # On installe les paquetages de la liste qu'on a pas déjà
 inst <- liste.paquetage %in% installed.packages()
