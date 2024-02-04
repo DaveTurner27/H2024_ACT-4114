@@ -162,3 +162,9 @@ ggplot(moy_par_group1) + geom_point(aes(x=Group1, y=Moyenne), col="darkblue", si
 
 # Density
 
+##
+## Interactions
+##
+plot(data.analyse %>% group_by(Group1) %>% summarise(Moyenne = mean(Age)))
+cor(data.analyse$Group1, data.analyse$Age)
+cor(data.analyse %>% group_by(Group1) %>% summarise(Moyenne = mean(Age)))
