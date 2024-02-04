@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r paquetages, message=FALSE, eval=TRUE, include=FALSE, echo = FALSE}
 ### Liste des paquetages
-liste.paquetage <- c("ggplot2", "dplyr")
+liste.paquetage <- c("ggplot2", "dplyr", "CASdatasets", "knitr")
 
 ### On installe les paquetages de la liste qu'on a pas déjà
 inst <- liste.paquetage %in% installed.packages()
@@ -30,31 +30,51 @@ if(length(liste.paquetage[!inst]) > 0) install.packages(liste.paquetage[!inst])
 
 lapply(liste.paquetage, require, character.only = TRUE)
 
+# Importation des données
+data(pg15training)
+dat <- pg15training[-c(1:21), ]
 ```
 
 # Introduction
 
-L'objectif final de ce travail est de modéliser la fréquence des réclamations de la couverture de responsabilité civile (dommages matériels) en assurance automobile pour un portefeuille français. Pour le risque $j$, le nombre de réclamations sera noter par $N_j$. Pour procéder à la modélisation, on utilise les caractéristiques fournit dans notre jeux de données. On notera, pour l'assuré $j$, le vecteur de variables explicatives par $X_j$. On tiendra aussi en compte l'exposition au risque dans notre modèle. Cette dernière se présente sous la forme de nombre de jours à risque avec un maximum de 1 an (365 jours). Cette variable sera transformer en la divisant par 365 pour obtenir une proportion d'année couverte. On notera l'exposition du risque $j$ par $t_j$. Dans le tableau de données original on retrouve :
+L'objectif final de ce travail est de modéliser la fréquence des réclamations de la couverture de responsabilité civile (dommages matériels) en assurance automobile pour un portefeuille français. Pour le risque $j$, le nombre de réclamations sera noter par $N_j$. Pour procéder à la modélisation, on utilise les caractéristiques disponibles dans notre jeux de données. On notera, pour le risque $j$, le vecteur de variables explicatives par $X_j$. On tiendra aussi en compte l'exposition au risque dans notre modèle. Cette dernière se présente sous la forme de nombre de jours à risque avec un maximum de 1 an (365 jours). Cette variable sera transformer par une division de 365 afin d'obtenir une proportion d'année couverte. On notera l'exposition du risque $j$ par $t_j$. Dans le tableau de données original on retrouve :
 
--   la variable de fréquence $N$ sous le nom `Numtppd`
+-   la variable de fréquence $N$ sous le nom `Numtppd` ;
 
--   La variable d'exposition (version nombre de jours) sous le nom `Exppdays`.
+-   la variable d'exposition $365 t$ (version nombre de jours) sous le nom `Exppdays`.
 
-En ce qui concerne le jeu de données, il est disponible directement en `R` dans le paquetage `CASdatasets`. Plus précisément c'est le jeux de données `pg15training`. Les données ont été utilisées par l'institut française des actuaires dans un concours/jeux de tarification. Elles proviennent d'assureurs automobile privées inconnus. La matrice contient 2 ans d'observations (2009 et 2010) et environ 100 000 contrats. Voici quelques informations pertinentes avant de débuter l'analyse :
+En ce qui concerne le jeu de données, il est disponible directement en `R` dans le paquetage `CASdatasets`. Plus précisément c'est le jeux de données `pg15training`. Les données ont été utilisées par l'institut française des actuaires dans un concours/jeux de tarification. Elles proviennent d'assureurs automobile privées inconnus. La matrice contient 2 ans d'observations (2009 et 2010) avec 50 000 observations dans chacune de ces deux années. Voici quelques informations pertinentes avant de débuter l'analyse :
 
--   l'âge minimal pour conduire en France est de 18 ans
+1.  l'âge minimal pour conduire en France est de 18 ans ;
 
--   la couverture étudiée est obligatoire
+2.  la couverture étudiée est obligatoire ;
 
--   certaines variables catégorielles contiennent des groupes dont la signification demeure non spécifiée pour des raisons de confidentialités.
+3.  certaines variables catégorielles contiennent des groupes dont la signification demeure non spécifiée pour des raisons de confidentialité.
 
-Pour plus d'information sur les données il est possible d'aller voir la documentation sur CRAN ou bien simplement de faire la commande suivante en `R` : `help(pg15training)`. Finalement, le jeux de données `pg15princing` du même paquetage pourrait être utilisé pour faire de la validation croisée.
+Pour plus d'information sur les données il est possible d'aller voir la documentation sur CRAN ou bien simplement de faire la commande suivante en `R` : `help(pg15training)`.
 
 # Analyse exploratoire des données
 
-## Corrections et modifications
+Cette section est dédié à la détection erreurs ou anomalies dans notre jeux de données ainsi qu'à l'approche adopté pour la correction de ces erreurs. On regarde également les grandes lignes de l'analyse préliminaire effectuée.
 
-Écrire sur la modifications ou corrections dans le jeux de données
+## Doublons
+
+D'abord, on remarque que certaines polices sont présentes en double dans le jeux de données. En fait, il s'agit des 21 premières lignes qui sont en surplus. Ces premières lignes sont exactement comme leur doublure à l'exception qu'aucun montant de réclamation (`Indtppd`) n'a été enregistré. La correction est assez directe, on retire simplement les 21 premières lignes et on retrouve maintenant un nombre exact de 100 000 observations tel que documenté dans la rubrique d'aide en `R`. On présente dans le tableau 1 ci-dessous un exemple de doublon avec la police numéro 200114978 (la première ligne).
+
+```{r echo=FALSE}
+library(knitr)
+
+id_doublon <- pg15training[1, "PolNum"]
+table_data <- pg15training[pg15training$PolNum %in% id_doublon, c(1, 17, 19)]
+table_data$Ligne <- row.names(table_data)
+
+kable(
+    table_data[, c(4, 1, 2, 3)], format = "markdown",
+    caption = "Exemple de doublon",
+    row.names = FALSE, label = "tableau1"
+)
+
+```
 
 # Traitement des valeurs manquantes
 
@@ -74,7 +94,7 @@ Pour plus d'information sur les données il est possible d'aller voir la documen
 
 ## Description du jeu de données
 
-Comme sur le forum, mais sans fautes d' orthographes.
+Comme sur le forum, mais sans fautes d'orthographes.
 
 ## Déclaration de l’utilisation de l’intelligence artificielle
 
