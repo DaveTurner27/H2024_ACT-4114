@@ -144,7 +144,10 @@ ggplot(data.analyse, aes(x=Numtppd))+
 
 mean(data.analyse$Numtppd[which(data.analyse$Adind == 0)]) # moyenne pour Adind = 0
 mean(data.analyse$Numtppd[which(data.analyse$Adind == 1)]) # moyenne pour Adind = 1
+
 # si tes pas assuré des deux bords tu fais plus d'accident
+(t.test(x = data.analyse$Numtppd[which(data.analyse$Adind == 0)], data.analyse$Numtppd[which(data.analyse$Adind == 1)], var.equal = F))$p.value 
+### avec la p-value on déduit que les moyennes sont significativement différente
 
 # SubGroup2
 
