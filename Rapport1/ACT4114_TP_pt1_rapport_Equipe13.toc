@@ -1,0 +1,15 @@
+\contentsline {section}{Introduction}{2}{section*.2}%
+\contentsline {section}{Analyse exploratoire des données}{2}{section*.3}%
+\contentsline {subsection}{Doublons}{2}{section*.4}%
+\contentsline {subsection}{Variable endogène}{2}{section*.5}%
+\contentsline {subsection}{Variables explicatives}{2}{section*.6}%
+\contentsline {section}{Traitement des valeurs manquantes}{4}{section*.9}%
+\contentsline {section}{Analyse en composantes principales}{4}{section*.10}%
+\contentsline {section}{Création de nouvelles variables explicatives}{4}{section*.11}%
+\contentsline {section}{Classification hiérarchique}{4}{section*.12}%
+\contentsline {section}{Algorithme des k-moyennes}{4}{section*.13}%
+\contentsline {section}{Conclusion}{4}{section*.14}%
+\contentsline {section}{Bibliographie}{4}{section*.15}%
+\contentsline {section}{Annexe}{4}{section*.16}%
+\contentsline {subsection}{Description du jeu de données}{4}{section*.17}%
+\contentsline {subsection}{Déclaration de l'utilisation de l'intelligence artificielle}{4}{section*.18}%
