@@ -20,7 +20,7 @@
 ##
 
 # Paquetages requis
-liste.paquetage <- c("ggplot2", "dplyr", "CASdatasets", "MASS")
+liste.paquetage <- c("ggplot2", "dplyr", "CASdatasets", "MASS", "car")
 
 # On installe les paquetages de la liste qu'on a pas déjà
 inst <- liste.paquetage %in% installed.packages()
@@ -81,8 +81,8 @@ hist(data.analyse$PolNum)
 ### Il y a deux bosses, pcq ya deux années hihi fun times.
 ### numeric discrèteç
 
-ggplot(data.analyse, aes(x = PolNum)) +
-    geom_density(aes(fill = CalYear))
+ggplot(data.analyse, aes(x = PolNum, fill=as.factor(CalYear))) +
+    geom_density()
 
 summary(data.analyse$PolNum) # pas concluant
 ### On dirait qu'on a 2001 et 2002 comme début des numéros pour les deux années.
@@ -202,6 +202,7 @@ ggplot(moy_par_age) + geom_point(aes(x=Age, y=Moyenne), col="darkblue", size=2.5
 # graphique du coef de variation en fct de l'age
 ggplot(moy_par_age) + geom_point(aes(x=Age, y=dev_std/Moyenne))
 # Très dure è interpréter adéquatement, mais intéressant
+bc <- boxcox(I(Age^(1/4))~Numtppd, data=data.analyse)
 
 # Group1
 table(data.analyse$Group1)
@@ -307,7 +308,7 @@ mean(data.analyse$Numtppd[which(data.analyse$Adind == 0)]) # moyenne pour Adind 
 mean(data.analyse$Numtppd[which(data.analyse$Adind == 1)]) # moyenne pour Adind = 1
 
 # si tes pas assuré des deux bords tu fais plus d'accident
-(t.test(x = data.analyse$Numtppd[which(data.analyse$Adind == 0)], data.analyse$Numtppd[which(data.analyse$Adind == 1)], var.equal = F))$p.value 
+(t.test(x = data.analyse$Numtppd[which(data.analyse$Adind == 0)], data.analyse$Numtppd[which(data.analyse$Adind == 1)], var.equal = F))$p.value
 ### avec la p-value on déduit que les moyennes sont significativement différente
 
 # SubGroup2
@@ -364,7 +365,7 @@ ggplot(moy_par_bonus) + geom_point(aes(x=Group2, y=Moyenne), col="darkblue", siz
   geom_errorbar(aes(x=Group2, ymin=low_ic, ymax=upp_ic), width=0.5) +
   labs(title = "Moyenne de réclamation pour la couverture étudiée\nen fonction de la durée de la police avec un IC approximatif 80%",
        y="Moyenne des réclamtations")
-### sort by mean serrait beaucoup plus clair
+### sort by mean serait beaucoup plus clair
 
 # Density
 summary(data.analyse$Density)
@@ -382,3 +383,7 @@ table(data.analyse$Numtppd)
 plot(data.analyse %>% group_by(Group1) %>% summarise(Moyenne = mean(Age)))
 cor(data.analyse$Group1, data.analyse$Age)
 cor(data.analyse %>% group_by(Group1) %>% summarise(Moyenne = mean(Age)))
+
+mean(data.analyse[data.analyse$Exppdays == 365, ]$Numtppd)
+var(data.analyse[data.analyse$Exppdays == 365, ]$Numtppd)
+plot(table(data.analyse[data.analyse$Exppdays == 365, ]$Numtppd))
