@@ -38,13 +38,13 @@ data.analyse <- pg15training[-c(1:21), ]
 
 # Introduction
 
-L'objectif final de ce travail est de modéliser la fréquence des réclamations de la couverture de responsabilité civile (dommages matériels) en assurance automobile pour un portefeuille français. Pour le risque $j$, le nombre de réclamations sera noter par $N_j$. Pour procéder à la modélisation, on utilise les caractéristiques disponibles dans notre jeux de données. On notera, pour le risque $j$, le vecteur de variables explicatives par $X_j$. On tiendra aussi en compte l'exposition au risque dans notre modèle. Cette dernière se présente sous la forme de nombre de jours à risque avec un maximum de 1 an (365 jours). Cette variable sera transformer par une division de 365 afin d'obtenir une proportion d'année couverte. On notera l'exposition du risque $j$ par $t_j$. Dans le tableau de données original on retrouve :
+L'objectif de ce travail est de modéliser la fréquence des réclamations pour la responsabilité civile (dommages matériels) en assurance automobile. Nos données représentent un portefeuille d'assurés français. Pour le risque $j$, le nombre de réclamations sera noté par $N_j$. Pour procéder à la modélisation, on utilise les caractéristiques disponibles dans notre jeu de données. On notera, pour le risque $j$, le vecteur de variables explicatives par $X_j$. On prendra aussi en compte l'exposition au risque dans notre modèle. L'exposition se présente sous la forme de nombre de jours à risque avec un maximum de 1 an (365 jours). Cette variable sera transformée en divisant par 365 afin d'obtenir une proportion d'année couverte. On notera l'exposition du risque $j$ par $t_j$. Dans le tableau de données original on retrouve :
 
 -   la variable de fréquence $N$ sous le nom `Numtppd` ;
 
--   la variable d'exposition $365 t$ (version nombre de jours) sous le nom `Exppdays`.
+-   la variable d'exposition $365 t$ (nombre de jours) sous le nom `Exppdays`.
 
-En ce qui concerne le jeu de données, il est disponible directement en `R` dans le paquetage `CASdatasets`. Plus précisément c'est le jeux de données `pg15training`. Les données ont été utilisées par l'institut française des actuaires dans un concours/jeux de tarification. Elles proviennent d'assureurs automobile privées inconnus. La matrice contient 2 ans d'observations (2009 et 2010) avec 50 000 observations dans chacune de ces deux années. Voici quelques informations pertinentes avant de débuter l'analyse :
+En ce qui concerne le jeu de données, il est disponible directement en `R` dans le paquetage `CASdatasets`. Plus précisément, il s'agit du jeu de données `pg15training`. Les données ont été utilisées par l'Institut française des actuaires dans un concours/jeu de tarification. Elles proviennent d'assureurs automobiles privés inconnus. La matrice contient 2 ans d'observations (2009 et 2010) avec 50 000 observations dans chacune de ces deux années. Voici quelques informations pertinentes avant de débuter l'analyse :
 
 1.  l'âge minimal pour conduire en France est de 18 ans ;
 
@@ -52,15 +52,15 @@ En ce qui concerne le jeu de données, il est disponible directement en `R` dans
 
 3.  certaines variables catégorielles contiennent des groupes dont la signification demeure non spécifiée pour des raisons de confidentialité.
 
-Pour plus d'information sur les données il est possible d'aller voir la documentation sur CRAN ou bien simplement de faire la commande suivante en `R` : `help(pg15training)`.
+Pour plus d'information sur les données, il est possible d'aller voir la documentation sur CRAN ou bien simplement de faire la commande suivante en `R` : `help(pg15training)`.
 
 # Analyse exploratoire des données
 
-Cette section est dédié à la détection erreurs ou anomalies dans notre jeux de données ainsi qu'à l'approche adopté pour la correction de ces erreurs. On regarde également les grandes lignes de l'analyse préliminaire effectuée.
+Cette section est dédiée à la détection d'erreurs ou d'anomalies dans notre jeu de données ainsi qu'à l'approche adoptée pour la correction de ces erreurs. On regarde également les grandes lignes de l'analyse préliminaire effectuée.
 
 ## Doublons
 
-D'abord, on remarque que certaines polices sont présentes en double dans le jeux de données. En fait, il s'agit des 21 premières lignes qui sont en surplus. Ces premières lignes sont exactement comme leur doublure à l'exception qu'aucun montant de réclamation (`Indtppd`) n'a été enregistré. La correction est assez directe, on retire simplement les 21 premières lignes et on retrouve maintenant un nombre exact de 100 000 observations tel que documenté dans la rubrique d'aide en `R`. On présente dans le tableau 1 ci-dessous un exemple de doublon avec la police numéro 200114978 (la première ligne).
+D'abord, on remarque que certaines polices sont présentes en double dans le jeu de données. En fait, il s'agit des 21 premières lignes qui sont en surplus. Ces premières lignes sont exactement comme leur doublure à l'exception qu'aucun montant de réclamation (`Indtppd`) n'a été enregistré. La correction est assez directe, on retire simplement les 21 premières lignes et on retrouve maintenant un nombre exact de 100 000 observations tel que documenté dans la rubrique d'aide en `R`. On présente dans le tableau 1 ci-dessous un exemple de doublon avec la police numéro 200114978 (la première ligne).
 
 ```{r echo=FALSE}
 
@@ -78,9 +78,28 @@ kable(
 
 ## Variable endogène
 
+La variable endogène est `Numtppd` et elle représente la fréquence d'accidents en responsabilité civile (dommages matériels). Le tableau ci-dessous montre le nombre d'assurés qui ont eu $N= k$ certain nombre d'accidents sur 100 000 observations.
+
+```{r, echo = FALSE}
+table_freq <- table(data.analyse$Numtppd)
+names(table_freq) <- NULL
+table_freq <- t(data.frame(
+    k=0:7,
+    Fréq.=c(table_freq)
+))
+    
+kable(
+    table_freq, format = "markdown",
+    caption = "Tableau de fréquence de la variable endogène", row.names = T, label = "tableau2"
+)
+
+```
+
+Comme attendu, la majorité des observations sont à 0. La masse à zéro est en effet très importante. Elle représente environ 87,7% des observations. La majorité des observations se retrouvent entre 0 et 2 accidents (99,6% des observations) . Quelques individus ont eu plus de 2 accidents avec un maximum de 7 pour une année. La moyenne de la variable est `r mean(data.analyse$Numtppd)` et la variance est `r var(data.analyse$Numtppd)`. Les données ne sont pas très dispersées, un GLM Poisson est envisageable.
+
 ## Variables exogènes
 
-Pour commercer, les variables suivantes ne doivent pas être utilisées pour modéliser la fréquence d'accident de la couverture étudiée (`Numtppd`) :
+Pour commencer, les variables suivantes ne doivent pas être utilisées pour modéliser la fréquence d'accident de la couverture étudiée (`Numtppd`) :
 
 -   `Polnum` (le numéro de police n'a pas d'impact sur le nombre d'accidents)
 
@@ -90,13 +109,15 @@ Pour commercer, les variables suivantes ne doivent pas être utilisées pour mod
 
 -   `Indtpbi` (cette variable serait inconnue lors d'une prédiction)
 
--   `CalYear` (on doit pouvoir faire des prédiction sur d'autres années que 2009 et 2010)
+-   `CalYear` (on doit pouvoir faire des prédictions sur d'autres années que 2009 et 2010)
 
-On regarde maintenant les variables exogènes et leur lien avec la variable endogène. Pour certaines variables, la moyenne de réclamations semblent être lié linéairement lié avec la dite variable.
+-   `Subgroup2` (exclue, car répétitive avec `group2` et trop de catégories)
+
+On regarde maintenant les variables exogènes et leurs liens avec la variable endogène. Pour certaines variables, la relation entre celle-ci et la moyenne des réclamations semble linéaire.
 
 **AGE**
 
-Le nombre moyens d'accidents par `Age` ne semble pas linéairement lié avec l'age comme on peut le voir dans la figure 1. La technique boxcox suggère d'applique la transformation racine quatrième à l'age pour rendre la relation plus linéaire. On observe dans le graphique 2 que cette transformation rend le lien légèrement plus linéaire, c'est donc une considération à prendre en compte lors de la construction de GLM.
+Le nombre moyen d'accidents par `Age` ne semble pas linéairement lié avec l'age comme on peut le voir dans la figure 1. Il est possible de remarquer que la moyenne du nombre de réclamations est plus élevée pour les individus plus jeunes. Comme la relation semble complexe à modélisation, on va regrouper les ages en groupes. Ceci sera effectué ultérieurement dans la section METTRE LE NOM DE LA SECTION!!!!!!
 
 ```{r echo=FALSE}
 plot_moy_var <- function(var, xlabel="", ylabel="", mainlabel="", niv_conf=0.9,
@@ -133,32 +154,83 @@ plot_moy_var <- function(var, xlabel="", ylabel="", mainlabel="", niv_conf=0.9,
 }
 ```
 
-```{r Age, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de réclamation par age", fig.width=10, fig.height=6}
-plot_moy_var("Age", plotly = FALSE, xlabel = "Age", "Moyenne de réclamation (Numtppd)", mainlabel = "Moyenne de réclamation par age avec un IC approximatif 90%", niv_conf = 0.9)
-```
-
-```{r Age.modif, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de réclamation par age tranformé", fig.width=10, fig.height=6}
-data.analyse$modif.age <- (data.analyse$Age)^(1/4)
-plot_moy_var("modif.age", plotly = FALSE, xlabel = "(Age)^(1/4)", "Moyenne de réclamation (Numtppd)", mainlabel = "Moyenne de réclamation par age modifié avec un IC approximatif 90%", niv_conf = 0.9, size = 0.01)
+```{r Age, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd  par age", fig.width=10, fig.height=6}
+plot_moy_var("Age", plotly = FALSE, xlabel = "Age", "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par age avec un IC de 90%", niv_conf = 0.9)
 ```
 
 **Bonus**
 
-La variable `Bonus` semble présenter un lien linéaire, mais 0 lien avec age
+La variable `Bonus` représente la valeur du système de bonus-malus de la compagnie qui applique une modification sur la prime en fonction de l'expérience. Un bonus négatif représente un rabais et un bonus positif, une surcharge. Pour de plus amples détails, voir le paquetage CASdatasets sur CRAN.
 
-```{r Bonus, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de réclamation par Bonus", fig.width=10, fig.height=6}
-plot_moy_var("Bonus", plotly = FALSE, size = 2, niv_conf = 0.9)
+La variable `Bonus` semble prédictive pour le nombre d'accidents. En effet, comme on peut voir sur la figure 2, le lien est très linéaire excepté pour le `Bonus = 0`. La différence à zéro s'explique par le fait que tous les assurés agés de 18 ans ont un bonus de 0. La moyenne du nombre d'accidents pour ce bonus est donc gonflée par les assurés de 18 ans. L'ajout d'une interaction entre `Age` et `Bonus` dans notre modèle prendrait en compte cette spécificité des données.
+
+```{r Bonus, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd par Bonus", fig.width=10, fig.height=6}
+plot_moy_var("Bonus", plotly = FALSE, size = 2, niv_conf = 0.9,xlabel = "Bonus", ylabel = "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par bonus avec un IC de 90%")
 ```
 
-**Lien linéaire**
+**Group1**
 
-```{r}
-plot_moy_var("Group1", plotly = FALSE, size = 0.7, niv_conf = 0.9)
+La relation entre la moyenne de réclamations et la variable `group1` est linéaire comme on peut le voir sur la figure 3.
+
+```{r Group1, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd par Group1", fig.width=10, fig.height=6}
+plot_moy_var("Group1", plotly = FALSE, size = 0.7, niv_conf = 0.9,xlabel = "Groupe1", ylabel = "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par Groupe1 avec un IC de 90%")
 ```
 
-# Traitement des valeurs manquantes
+**Occupation**
 
-bof
+La variable `occupation` semble importante pour modéliser la fréquence. La figure 4 illustre bien cette observation avec le graphique de fréquence pour chaque occupation. On voit également que le sous-groupe des retraités a significativement moins d'accident que le reste de la population. De plus, on va éventuellement faire des regroupements pour diminuer le nombre de niveaux. Ceci sera effectué ultérieurement dans la section METTRE LE NOM DE LA SECTION!!!!!!
+
+```{r Occupation, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Fréquence de Numtppd par Occupation", fig.width=10, fig.height=6}
+ggplot(data.analyse, aes(x=Numtppd))+
+    geom_bar(aes(y = after_stat(prop), fill=Occupation), position="dodge") +
+    labs(
+        title="Fréquence des accidents par groupe d'occupation",
+        x="Nombre d'accidents",
+        y="Fréquence"
+    )+
+    theme_light() +
+    theme(
+    plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
+    axis.title = element_text(size = 15, face = "bold", margin = margin(l = 20)),
+    )
+```
+
+**Densité de population**
+
+Plus la variable `density` est grande, plus la fréquence d'accidents est élevée. La figure 5 illustre parfaitement le phénomène.
+
+```{r Density, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Fréquence de Numtppd par Occupation", fig.width=10, fig.height=6}
+ggplot(data.analyse, aes(y=as.factor(Numtppd), x = Density))+
+    geom_boxplot() + 
+    labs(
+        title="Diagramme en boites à moustaches selon le nombre de sinistres",
+        x="Density",
+        y="Nombre de sinistre"
+    )+
+    theme_light() +
+    theme(
+    plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
+    axis.title = element_text(size = 15, face = "bold", margin = margin(l = 20)),
+    )
+```
+
+**Autres observations pertinentes**
+
+On présente rapidement certains faits pertinents observés durant l'analyse exploratoire.
+
+-   `Gender` : Les hommes font plus d'accidents que les femmes.
+
+-   `Category` : Les plus petites automobiles ont tendance à faire plus d'accidents.
+
+-   `Type` : La signification de cette variable est confidentielle, mais elle semble ordinale.
+
+-   `Poldur` : Plus la variable est grande, moins le nombre d'accidents est grand.
+
+-   `Adind` : Lorsque la variable vaut 0 (l'assuré à juste une assurance responsabilité civile) le nombre d'accidents augmente.
+
+-   `Group2` : Un regroupement est envisageable.
+
+-   `Value` : Le nombre d'accidents semble très légèrement augmenter lorsque la valeur du véhicule augmente.
 
 # Analyse en composantes principales
 
