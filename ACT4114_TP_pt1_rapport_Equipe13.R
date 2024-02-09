@@ -78,35 +78,42 @@ hist(data.analyse$Exppdays / 365)
 # Variables exclues : ICI
 ## - Polnum
 hist(data.analyse$PolNum)
-### Il y a deux bosses, pcq ya deux années hihi fun times.
-### numeric discrèteç
+### On peut remarquer qu'il y a deux bosses sur l'histogramme. Pour l'instant,
+### l'hypothèse est que ça représentre possiblement deux années.
+### La variable est numérique discrète.
 
 ggplot(data.analyse, aes(x = PolNum)) +
     geom_density(aes(fill = CalYear))
 
-summary(data.analyse$PolNum) # pas concluant
-### On dirait qu'on a 2001 et 2002 comme début des numéros pour les deux années.
+summary(data.analyse$PolNum) # Le sommaire n'est pas concluant.
 
 ## - Numtpbi
 table(data.analyse$Numtpbi)
-### grosse masse à 0
-### 1, 2, 3 de body injured sinon
-### numeric discret
+### On peur remarquer une grosse masse à 0 qui représente toutes les fois où il
+### n'y a pas eu de blessés.
+### L'étendue est petit ensuite. Les options sont 1, 2, 3 blessés sinon.
+### La variable est numérique dicrète.
 
 plot(table(data.analyse$Numtpbi))
 
 ## - Indtppd
-hist(log(data.analyse$Indtppd)) # loi continue, capable de fitter une distrib
+hist(log(data.analyse$Indtppd))
+### L'histogramme montre une variable continue. On pourrait essayer de trouver
+### la distribution appropriée aux données.
+
 summary(data.analyse$Indtppd)
-### maximum à 13k$, pas beaucoup ?? revoir loi france ou si limite
-### numeric continue
+### Le maximum du montant pour les dommages matériels est à 13k$. Ce n'est pas beaucoup.
+### On va revoir si ça peut être expliqué par une loi  quelconque en France ou
+### si c'est causé par une limite quelconque.
+### La variable est numérique continue.
 
 ## - Indtpbi
 hist(log(data.analyse$Indtpbi))
 
 summary(data.analyse$Indtpbi)
-### maximum à 70k$, makes sense plus chere que du materiel
-### numeric continu
+### Le maximum du montant pour les dommages matériels est à 70k$. C'est plus haut
+### que pour les dommages matériels, ce qui a du sens.
+### La variable est numérique continue.
 
 # CalYear
 table(data.analyse$CalYear)
@@ -132,14 +139,16 @@ plot(data.analyse %>% group_by(Type) %>% summarise(Moyenne = mean(Numtppd)))
 
 # Category
 summary(data.analyse$Category)
-## Environ les mêmes proportions, un peu moins de small
-str(data.analyse$Category) # pas de NA fun times
+## On remarque que les catégories ont environ les mêmes proportions.
+## Il y a un peu moins de véhicule dans la catégorie Small.
+
+str(data.analyse$Category) # pas de NA!
 
 ggplot(data.analyse, aes(x=Numtppd))+
     geom_bar(aes(y = after_stat(prop), fill=Category), position="dodge")
 ## Les petites autos font plus de dommages matériels et sont les moins à avoir
 ## 0 dommage. Plus l'auto est grosse, moins elle fait de dommages matériels. Les
-## jeunes ont des petites autos.
+## jeunes ont souvent des petites autos, ce qui pourrait expliquer le phénomène.
 
 ## Moyenne du nb accidents des gens qui sont dans la categ large:
 mean(data.analyse$Numtppd[which(data.analyse$Category == "Large")])
@@ -150,19 +159,20 @@ mean(data.analyse$Numtppd[which(data.analyse$Category == "Medium")])
 ## Moyenne du nb accidents des gens qui sont dans la categ Small:
 mean(data.analyse$Numtppd[which(data.analyse$Category == "Small")])
 
-## Comme on avait dit, plus c'est large, moins la moyenne d'Accidents est haute
+## Comme dit plus haut, plus c'est large, moins la moyenne d'accidents est haute.
 
-## catégorielle ordinale
+## La variable est catégorielle ordinale.
 
 # Occupation
 summary(data.analyse$Occupation)
-## La plupart sont des employés, 5 catégories
-str(data.analyse$Occupation) # pas de NA fun times
+## La plupart sont des employés et il y a cinq catégories.
+
+str(data.analyse$Occupation) # pas de NA!
 
 ggplot(data.analyse, aes(x=Numtppd))+
     geom_bar(aes(y = after_stat(prop), fill=Occupation), position="dodge")
-## les reitred font moins d'accidents, makes sense moins de déplacement, vont pas
-## au travail par exemple
+## Les gens à la retraite font moins d'accidents. C'est logique, puisqu'ils font
+## moins de déplacement et ne vont pas au travail à tous les jours par exemple.
 
 ## Moyenne du nb accidents des gens qui sont dans la categ Empployed:
 mean(data.analyse$Numtppd[which(data.analyse$Occupation == "Employed")])
@@ -179,8 +189,9 @@ mean(data.analyse$Numtppd[which(data.analyse$Occupation == "Self-employed")])
 ## Moyenne du nb accidents des gens qui sont dans la categ Unemployed:
 mean(data.analyse$Numtppd[which(data.analyse$Occupation == "Unemployed")])
 
-## plus gross moyenne pour les unemployed, makes sense, plus de temps pour rien
-## faire et être sur la route. Plus petite pour retired comme dit tantot
+## La plus grosse moyenne est pour les gens sans emploi. C'est loique, il ont plus
+## de temps pour être sur la route. La plus petite moyenne est pour les gens
+## retraités comme dit plus haut.
 
 # Age
 table(data.analyse$Age)
@@ -269,7 +280,8 @@ ggplot(moy_par_bonus) + geom_point(aes(x=Poldur, y=Moyenne), col="darkblue", siz
 
 # Value
 summary(data.analyse$Value)
-## Auto entre 1000 et 50k$. Pas tant chere comme auto. Pas de NA hihi
+## La valeur des autos se trouvent entre 1000 euros et 50 000 euros. La maximum
+## semble bas à premièere vue. Il n'y a pas de NA.
 
 ggplot(data.analyse, aes(x=as.factor(Numtppd), y = Value))+
     geom_boxplot()
@@ -295,7 +307,8 @@ df <- data.frame(
 ggplot(df, aes(x = quartile, y = moyenne))+
     geom_point()
 ## On peut voir qu'il y a une tendance croissante, même si le nombre de points
-## n'est pas énorme, pas full concluant
+## n'est pas énorme. Ce n'Est pas très concluant pour l'instant. À retravailler
+## avec plus de points.
 
 # Adind
 summary(data.analyse$Adind) # 0/1
@@ -307,7 +320,7 @@ mean(data.analyse$Numtppd[which(data.analyse$Adind == 0)]) # moyenne pour Adind 
 mean(data.analyse$Numtppd[which(data.analyse$Adind == 1)]) # moyenne pour Adind = 1
 
 # si tes pas assuré des deux bords tu fais plus d'accident
-(t.test(x = data.analyse$Numtppd[which(data.analyse$Adind == 0)], data.analyse$Numtppd[which(data.analyse$Adind == 1)], var.equal = F))$p.value 
+(t.test(x = data.analyse$Numtppd[which(data.analyse$Adind == 0)], data.analyse$Numtppd[which(data.analyse$Adind == 1)], var.equal = F))$p.value
 ### avec la p-value on déduit que les moyennes sont significativement différente
 
 # SubGroup2
@@ -371,8 +384,10 @@ summary(data.analyse$Density)
 
 ggplot(data.analyse, aes(y=as.factor(Numtppd), x = Density))+
     geom_boxplot()
-## plus d'accidents quand la densité de population est plus élevé,
-## semble être linéaire. moins de données donc moins fiables pour les 3 à droite
+## Il y a plus d'accidents quand la densité de population est plus élevée,
+## Ça semble être linéaire. Il y a moins de données pour les densités 5 et +,
+## donc c'est moins fiables.
+
 table(data.analyse$Numtppd)
 ## regrouper 5, 6, 7
 
