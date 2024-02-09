@@ -78,9 +78,9 @@ kable(
 
 ## Variable endogène
 
-## Variables exogènes 
+## Variables exogènes
 
-Pour commercer, les variables suivantes ne doivent pas être utilisées pour modéliser la fréquence d'accident de la couverture étudiée () :
+Pour commercer, les variables suivantes ne doivent pas être utilisées pour modéliser la fréquence d'accident de la couverture étudiée (`Numtppd`) :
 
 -   `Polnum` (le numéro de police n'a pas d'impact sur le nombre d'accidents)
 
@@ -119,7 +119,11 @@ plot_moy_var <- function(var, xlabel="", ylabel="", mainlabel="", niv_conf=0.9,
     p <- ggplot(moy_par_var) + geom_point(aes_string(x = var, y = "Moyenne"), col=color, size=2) +
         geom_errorbar(aes_string(x = var, ymin = "low_ic", ymax = "upp_ic"), width=size) +
         labs(title = mainlabel, y = ylabel, x = xlabel) +
-        theme_minimal()
+        theme_light() +
+        theme(
+    plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
+    axis.title = element_text(size = 15, face = "bold", margin = margin(l = 20)),
+  )
     
     # Plotly
     if(plotly)
@@ -142,13 +146,19 @@ plot_moy_var("modif.age", plotly = FALSE, xlabel = "(Age)^(1/4)", "Moyenne de r�
 
 La variable `Bonus` semble présenter un lien linéaire, mais 0 lien avec age
 
-```{r Group1, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de réclamation par Bonus", fig.width=10, fig.height=6}
+```{r Bonus, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de réclamation par Bonus", fig.width=10, fig.height=6}
 plot_moy_var("Bonus", plotly = FALSE, size = 2, niv_conf = 0.9)
 ```
 
 **Lien linéaire**
 
+```{r}
+plot_moy_var("Group1", plotly = FALSE, size = 0.7, niv_conf = 0.9)
+```
+
 # Traitement des valeurs manquantes
+
+bof
 
 # Analyse en composantes principales
 
