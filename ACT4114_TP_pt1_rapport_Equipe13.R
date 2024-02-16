@@ -228,7 +228,8 @@ ggplot(moy_par_group1) + geom_point(aes(x=Group1, y=Moyenne), col="darkblue", si
 
 summary(data.analyse$Bonus)
 summary(as.factor(data.analyse$Bonus))
-data.analyse$Bonus[which(data.analyse$Age == 18)] # ceux de 18 ans on 0 comme bonus car premiere année dans le contrat
+data.analyse$Bonus[which(data.analyse$Age == 18)]
+# ceux de 18 ans on 0 comme bonus car premiere année dans le contrat
 data.analyse$Age[which(data.analyse$Bonus == 0)] # pas seulement ceux de 18 ans qui on 0 de bonus
 # imputation stochastique pour les 18 ans car bonus biaisé ???
 
@@ -313,11 +314,9 @@ mean(data.analyse$Numtppd[which(data.analyse$Adind == 1)]) # moyenne pour Adind 
 
 # SubGroup2
 
-summary(data.analyse$SubGroup2) ## beaucoup troop de niveau on va prendre Group2 à la place
+summary(data.analyse$SubGroup2) ## beaucoup trop de niveau on va prendre Group2 à la place
 
-# Group2
-
-# region (interactionna vec densité)
+# Group2(region (interactionn avec densité))
 summary(data.analyse$Group2)
 
 ggplot(data.analyse, aes(x=Numtppd))+
@@ -375,15 +374,28 @@ ggplot(data.analyse, aes(y=as.factor(Numtppd), x = Density))+
 ## plus d'accidents quand la densité de population est plus élevé,
 ## semble être linéaire. moins de données donc moins fiables pour les 3 à droite
 table(data.analyse$Numtppd)
-## regrouper 5, 6, 7
 
 ##
-## Interactions
+## 4. Analyse en composantes principales
 ##
-plot(data.analyse %>% group_by(Group1) %>% summarise(Moyenne = mean(Age)))
-cor(data.analyse$Group1, data.analyse$Age)
-cor(data.analyse %>% group_by(Group1) %>% summarise(Moyenne = mean(Age)))
+library(factoextra)
+library(FactoMineR)
+data.analyse$crisk <- data.analyse$Group1
+data.analyse$is.female <- as.numeric(data.analyse$Gender == "Female")
+data.pca <- data.analyse[, c("Age", "crisk", "Bonus", "Poldur", "Value", "Density")]
+data.pca <- scale(data.pca, center = TRUE, scale = TRUE)
+acp <- PCA(data.pca, scale.unit = T)
+acp$eig
+fviz_screeplot(acp, ncp=6)
 
-mean(data.analyse[data.analyse$Exppdays == 365, ]$Numtppd)
-var(data.analyse[data.analyse$Exppdays == 365, ]$Numtppd)
-plot(table(data.analyse[data.analyse$Exppdays == 365, ]$Numtppd))
+weights <- data.frame(acp$var$coord[,1:3])
+weights$carac <- rownames(weights)
+weights.long <- reshape2::melt(weights)
+
+ggplot(weights.long, aes(x=carac, fill=variable, y=value))+
+    geom_bar(stat="identity",position=PositionDodge)+
+    facet_grid(~variable)+
+    theme(legend.position="top",axis.text.x = element_text(angle = 90))+
+    coord_flip()
+
+ggplot(mapping = aes(x=1:6, y=acp$eig[, 3])) + geom_point() + geom_line()
