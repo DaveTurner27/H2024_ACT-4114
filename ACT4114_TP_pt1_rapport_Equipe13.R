@@ -14,7 +14,6 @@
 #   3. Analyse exploratoire des données
 #   4. ...
 #
-
 ##
 ## 1. Importation des données et paquetages
 ##
@@ -399,3 +398,62 @@ ggplot(weights.long, aes(x=carac, fill=variable, y=value))+
     coord_flip()
 
 ggplot(mapping = aes(x=1:6, y=acp$eig[, 3])) + geom_point() + geom_line()
+
+
+
+## regroupement de Group2 selon 
+v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'O')]
+v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
+t.test(v1, v2, var.equal = FALSE)$p.value
+
+#on regroupe O et P dans P
+data.analyse$Group2[which(data.analyse$Group2 == 'O')] <- 'P'
+
+v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'L')]
+v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
+t.test(v1, v2, var.equal = FALSE)$p.value
+
+#on regroupe PO et L dans P
+data.analyse$Group2[which(data.analyse$Group2 == 'L')] <- 'P'
+
+v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'U')]
+v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
+t.test(v1, v2, var.equal = FALSE)$p.value
+#pvalue de 4.79%
+
+v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'S')]
+v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'T')]
+t.test(v1, v2, var.equal = FALSE)$p.value
+
+#on regroupe S et T dans S
+data.analyse$Group2[which(data.analyse$Group2 == 'T')] <- 'S'
+
+v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'S')]
+v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
+t.test(v1, v2, var.equal = FALSE)$p.value
+#tres petite pvalue
+
+v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'N')]
+v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'Q')]
+t.test(v1, v2, var.equal = FALSE)$p.value
+
+#on regroupe N et Q dans Q
+data.analyse$Group2[which(data.analyse$Group2 == 'N')] <- 'Q'
+
+##
+## On a donc 
+## (OPL) = P, (ST) = S, (NQ) = Q
+## Pour maintenant 6 classe
+
+moy_par_bonus <- data.analyse %>% group_by(Group2) %>% summarise(
+  Count=length(Numtppd), Moyenne=mean(Numtppd), dev_std=sd(Numtppd)
+)
+moy_par_bonus
+
+## regroupement selon occupation
+
+v1 <- data.analyse$Numtppd[which(data.analyse$Occupation == 'Employed')]
+v2 <- data.analyse$Numtppd[which(data.analyse$Occupation == 'Housewife')]
+t.test(v1, v2, var.equal = FALSE)$p.value
+
+## Rien a regrouper ici
