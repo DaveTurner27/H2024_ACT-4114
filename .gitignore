@@ -6,3 +6,15 @@
 
 # Ignorer les fichiers temporaires
 *.tmp
+
+# Ignore les pdf
+*.pdf
+
+# Ignore les log
+*.log
+
+# Ignore les aux
+*.aux
+
+# Ignore les toc
+*.toc
