@@ -18,7 +18,7 @@ output:
 \clearpage
 ```
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r paquetages, message=FALSE, eval=TRUE, include=FALSE, echo = FALSE}
@@ -95,7 +95,7 @@ kable(
 
 ```
 
-Comme attendu, la majorité des observations sont à 0. La masse à zéro est en effet très importante. Elle représente environ 87,7% des observations. La majorité des observations se retrouvent entre 0 et 2 accidents inclusivement (99,6% des observations) . Quelques individus ont eu plus de 2 accidents avec un maximum de 7 pour une année. La moyenne de la variable est `r mean(data.analyse$Numtppd)` et la variance est `r var(data.analyse$Numtppd)`. Comme les données ne sont pas très dispersées, un GLM Poisson voir même Binomiale sont envisageables.
+Comme attendu, la majorité des observations sont à 0. La masse à zéro est en effet très importante. Elle représente environ 87,7% des observations. La majorité des observations se retrouvent entre 0 et 2 accidents inclusivement (99,6% des observations) . Quelques individus ont eu plus de 2 accidents avec un maximum de 7 pour une année. La moyenne de la variable est `r mean(data.analyse$Numtppd)` et la variance est `r var(data.analyse$Numtppd)`. Comme les données ne sont pas très dispersées, les GLM Poisson ou Binomiale seraient envisageables.
 
 ## Variables exogènes
 
@@ -117,7 +117,7 @@ On regarde maintenant les variables exogènes et leurs liens avec la variable en
 
 **Age**
 
-Le nombre moyen d'accidents par `Age` ne semble pas linéairement lié avec l'age comme on peut le voir dans la figure 1. Il est possible de remarquer que la moyenne du nombre de réclamations est plus élevée pour les individus plus jeunes. Comme la relation semble complexe à modélisation, on va regrouper les ages en groupes. Ceci sera effectué ultérieurement dans la section METTRE LE NOM DE LA SECTION!!!!!!
+Le nombre moyen d'accidents par `Age` ne semble pas linéairement lié avec l'age comme on peut le voir dans la figure 1. Il est possible de remarquer que la moyenne du nombre de réclamations est plus élevée pour les individus plus jeunes. Comme la relation semble complexe à modélisation, on pourrait regrouper les ages en groupes.
 
 ```{r echo=FALSE}
 plot_moy_var <- function(var, xlabel="", ylabel="", mainlabel="", niv_conf=0.9,
@@ -162,7 +162,7 @@ plot_moy_var("Age", plotly = FALSE, xlabel = "Age", "Moyenne (Numtppd)", mainlab
 
 La variable `Bonus` représente la valeur du système de bonus-malus c'est donc une variable d'expérience. Un bonus négatif représente un rabais et un bonus positif, une surcharge. Pour de plus amples détails, voir le paquetage CASdatasets sur CRAN.
 
-La variable `Bonus` semble prédictive pour le nombre d'accidents. En effet, comme on peut voir sur la figure 2, le lien est très linéaire excepté pour le `Bonus = 0`. La différence à zéro s'explique par le fait que tous les assurés agés de 18 ans ont un bonus de 0 étant donné qu'ils viennent d'acquérir le droit de conduire. La moyenne du nombre d'accidents pour ce bonus est donc gonflée par les assurés de 18 ans. L'ajout d'une interaction entre `Age` et `Bonus` dans notre modèle prendrait en compte cette spécificité des données.
+La variable `Bonus` semble prédictive pour le nombre d'accidents. En effet, comme on peut voir sur la figure 2, le lien est très linéaire excepté pour le `Bonus = 0`. La différence à zéro s'explique par le fait que tous les assurés âgés de 18 ans ont un bonus de 0 étant donné qu'ils viennent d'acquérir le droit de conduire. La moyenne du nombre d'accidents pour ce bonus est donc gonflée par les assurés de 18 ans. L'ajout d'une interaction entre `Age` et `Bonus` dans notre modèle prendrait en compte cette spécificité des données.
 
 ```{r Bonus, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd par Bonus", fig.width=10, fig.height=6, fig.align = "center"}
 plot_moy_var("Bonus", plotly = FALSE, size = 2, niv_conf = 0.9,xlabel = "Bonus", ylabel = "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par bonus avec un IC de 90%")
@@ -170,11 +170,11 @@ plot_moy_var("Bonus", plotly = FALSE, size = 2, niv_conf = 0.9,xlabel = "Bonus",
 
 **Group1 (Risque de crédit)**
 
-La signification de la variable `group1` est inconnue. Après avoir consulté Olivier Côté, actuaire en chef, on pose que la variable `group1` représente le risque de crédit, puisque la relation illustrée peut correspondre à ce type de variable (un score plus élevée implique que la personne est moins responsable) . On renomme donc la variable `crisk`. La relation entre la moyenne de réclamations et la variable `score` est linéaire comme on peut le voir sur la figure 3.
+La signification de la variable `group1` est inconnue. Après avoir consulté Olivier Côté, actuaire en chef, on pose que la variable `group1` représente le risque de crédit, puisque la relation illustrée peut correspondre à ce type de variable (un score plus élevée implique que la personne est moins responsable) . On renomme donc la variable `crisk`. La relation entre la moyenne de réclamations et la variable `crisk` est linéaire comme on peut le voir sur la figure 3.
 
 ```{r Group1, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd par Group1", fig.width=10, fig.height=6, fig.align = "center"}
 data.analyse$crisk <- data.analyse$Group1
-plot_moy_var("Group1", plotly = FALSE, size = 0.7, niv_conf = 0.9,xlabel = "Risque de credit", ylabel = "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par risque de crédit avec un IC de 90%")
+plot_moy_var("Group1", plotly = FALSE, size = 0.7, niv_conf = 0.9,xlabel = "Risque de credit", ylabel = "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par risque de crédit\navec un IC de 90%")
 ```
 
 **Occupation**
@@ -246,7 +246,7 @@ On présente rapidement certains faits pertinents observés durant l'analyse exp
 
 # Regroupement
 
-On fait des tests de *student* sur les variables `Group2` et `Occupation`.
+On fait des tests de *student* sur les variables `Group2` et `Occupation` afin de faire des regroupements.
 
 On propose un exemple avec la variable de région `Group2`. On essaye de regrouper la région 'O' et 'P'. Les hypothèses sont :
 
@@ -256,7 +256,7 @@ On propose un exemple avec la variable de région `Group2`. On essaye de regroup
     \mathcal{H}_1 : \mu_O - \mu_P \neq 0
 \end{align*}
 ```
-On suppose des variances différentes entre les régions. Sous $\mathcal{H}_0$ la distribution de $(\mu_O - \mu_P)$ est *student*.
+On suppose des variances différentes entre les régions. Sous $\mathcal{H}_0$ la distribution de $(\hat{\mu_O} - \hat{\mu_P})$ est une loi de *student*.
 
 Pour ce test, on trouve un seuil observé de 71 %. On ne rejette donc pas l'hypothèse nulle comme quoi les moyennes sont semblables et on regroupe ces régions.
 
@@ -267,11 +267,40 @@ test_1 <- t.test(v1, v2, var.equal = FALSE)$p.value
 test_1
 ```
 
+Le tableau suivant énumère les regroupements effectués. On remarque que pour la variable `Occupation`, aucun regroupement n'a été fait.
+
+```{r tableau de regroupement, echo=FALSE}
+regroupe <- data.frame(
+    `Nouvelles Régions`=c("OPL", "ST", "NQ"),
+    `Anciennes Régions parentes`=c("O, P, L", "S, T", "N, Q")
+)
+kable(
+    regroupe, format = "markdown",
+    caption = "Regroupement de régions", row.names = F, label = "tableau3", col.names = c("Nouvelles Régions", "Régions parentes")
+)
+data.analyse <- data.analyse %>% mutate(
+    Group2.modif = case_when(
+        Group2 %in% c("O", "P", "L") ~ "0PL",
+        Group2 %in% c("S", "T") ~ "ST",
+        Group2 %in% c("N", "Q") ~ "NQ",
+        TRUE ~ Group2
+    )
+)
+```
+
+# Création de nouvelles variables explicatives
+
+On voudrait créer une variable qui indique si l'assuré a 18 ans. Cela pourrait être utile lors de la création d'un modèle. En effet, il serait plus facile de gérer les problèmes engendrés par l'age de 18 ans. Par exemple, la variable `Bonus` est toujours de 0 pour les assurés de 18 ans. On va donc créer la variable `is_18` qui vaut 0 si le risque a plus de 18 ans et 1 si le risque a 18 ans.
+
+```{r creation de is_18, echo=FALSE}
+data.analyse$is.18 <- data.analyse$Age == 18
+```
+
 # Analyse en composantes principales
 
-D'abord, on fait un l'analyse en composante principales avec les variables numériques : `Age`, `crisk`, `Bonus`, `Poldur`, `Value` et `Density`. On présente dans la table 3 ci-dessous la variance pour chaque composante principale, ainsi que la variance cumulée.
+On fait un l'analyse en composante principales avec les variables numériques : `Age`, `crisk`, `Bonus`, `Poldur`, `Value` et `Density`. On présente dans la table 4 ci-dessous la variance pour chaque composante principale, ainsi que la variance cumulée.
 
-```{r PCA}
+```{r PCA, echo=FALSE}
 data.pca <- data.analyse[, c("Age", "crisk", "Bonus", "Poldur", "Value", "Density")]
 data.pca <- scale(data.pca, center = TRUE, scale = TRUE)
 acp <- PCA(data.pca, scale.unit = T, graph = FALSE)
@@ -279,18 +308,19 @@ acp <- PCA(data.pca, scale.unit = T, graph = FALSE)
 
 ```{r echo=FALSE}
 kable(
-    acp$eig, format = "markdown",
-    caption = "Variance expliquée par CP", row.names = T, label = "tableau3"
+    round(acp$eig, 2), format = "markdown",
+    caption = "Variance expliquée par CP", row.names = T, label = "tableau4", 
+    col.names = c("Variance", "Variance exp. (%)", "Var. cumulée exp. (%)")
 )
 ```
 
-On voit qu'il serait difficile de représenter un haut pourcentage de la variabilité avec moins de 6 composantes principales. Bref, on ne peut pas réduire la dimension avec l'ACP sans perdre de l'information.
+On voit qu'il serait difficile de représenter un haut pourcentage de la variabilité avec moins de 6 composantes principales. Bref, on ne peut pas adéquatement réduire la dimension avec l'ACP sans perdre de l'information.
 
 ```{r, include=FALSE}
 fviz_screeplot(acp, ncp=6)
 ```
 
-```{r}
+```{r, include=FALSE}
 fviz_pca_var(acp,
              col.var = "contrib",
              gradient.cols = c("#00AABB", "#E7F903", "#FF4E07"),
@@ -310,7 +340,7 @@ g_ind <- ggplot(data = data.points,
 g_ind
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, include=FALSE}
 weights <- data.frame(acp$var$coord[,1:3])
 weights$carac <- rownames(weights)
 weights.long <- reshape2::melt(weights)
@@ -321,10 +351,6 @@ ggplot(weights.long, aes(x=carac, fill=variable, y=value))+
     theme(legend.position="top",axis.text.x = element_text(angle = 90))+
     coord_flip()
 ```
-
-# Création de nouvelles variables explicatives
-
-On voudrait créer une variable qui indique si l'assuré à 18 ans. Cela pourrait être utile lors de la création d'un modèle. En effet, il serait plus facile de gérer les problèmes engendrés par l'age de 18 ans. Par exemple, la variable `Bonus` est toujours de 0 pour les assurés de 18 ans.
 
 # Classification hiérarchique
 
@@ -338,10 +364,42 @@ On voudrait créer une variable qui indique si l'assuré à 18 ans. Cela pourrai
 
 ## Description du jeu de données
 
-Comme sur le forum, mais sans fautes d'orthographes.
+**Le nom du jeu de données :**
+
+*French Motor Third-Part Liability datasets used for 100 percent Data Science game*
+
+(le *dataset* `pg15training`).
+
+**La source :**
+
+CASdatasets
+
+**Description des données :**
+
+Jeux de données qui proviennent de l'Institut français des actuaires datant du 15 novembre 2015. Les données contiennent 100 000 observations d'un assureur automobile privé de 2009 à 2010.
+
+**La variable réponse et son type :**
+
+Nombre de réclamations (TPPD). Il s'agit d'une variable numérique discrète.
+
+**La mesure d’exposition :**
+
+Le nombre de jours de couverture (maximum 365).
+
+**Les variables explicatives et leur type :**
+
+1.  Âge du conducteur (Numérique discrète) ;
+
+2.  Genre (Catégorielle, binaire) ;
+
+3.  Densité de la région (Numérique continue) ;
+
+4.  Prix du véhicule (Numérique continue) ;
+
+5.  Bonus-Malus (Numérique discrète).
+
+**Taille du jeu de données :**
+
+100 000 observations de 21 variables.
 
 ## Déclaration de l’utilisation de l’intelligence artificielle
-
-générative
-
-Il faut insérer la déclaration complétée ici.
