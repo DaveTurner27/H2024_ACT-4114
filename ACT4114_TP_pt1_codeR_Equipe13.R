@@ -15,15 +15,19 @@
 #   4. Regroupement
 #   5. Analyse en composantes principales
 #   6. Classification hiérarchique
-#   7. Algorithme des k-moyennes
-#
 
 ##
 ## 1. Importation des données et paquetages
 ##
 
 # Paquetages requis
-liste.paquetage <- c("ggplot2", "dplyr", "CASdatasets", "MASS", "car", "factoextra", "FactoMineR")
+
+liste.paquetage <- c(
+    "ggplot2", "dplyr", "CASdatasets", "knitr", "tidyverse",
+    "FactoMineR", "DT", "factoextra", "plotly", "reshape2",
+    "cluster", "dendextend"
+)
+
 
 # On installe les paquetages de la liste qu'on a pas déjà
 inst <- liste.paquetage %in% installed.packages()
@@ -76,12 +80,15 @@ mean(data.analyse$Numtppd)
 var(data.analyse$Numtppd)
 summary(data.analyse$Numtppd)
 # Très petite étendue
+# beaucoup de 0
+
 
 ## Exppdays (exposition)
 table(data.analyse$Exppdays)
 summary(data.analyse$Exppdays)
 hist(data.analyse$Exppdays / 365)
-# Très grande proportion de police complète!
+
+# Très grande proportion de police complète (365 jours)!
 
 ##
 ## Variables exclues :
@@ -181,6 +188,19 @@ ggplot(moy_par_age) + geom_point(aes(x=Age, y=Moyenne), col="darkblue", size=2.5
          y="Moyenne des réclamtations")
 # relation non linéaire, mais on constate que les jeunes sont plus dangereux que les vieux
 
+# Relation très complexe, regression poly?
+ggplot() +
+    geom_smooth(data = data.analyse, aes(x = Age, y = Numtppd),
+                method = "glm", formula = y ~ poly(x, 7),
+                method.args = list(family = "poisson"), level=0.95) +
+    geom_point(data = moy_par_age, aes(x = Age, y = Moyenne), col = "darkblue", size = 2.5) +
+    geom_errorbar(data = moy_par_age, aes(x = Age, ymin = low_ic, ymax = upp_ic), width = 0.5) +
+    labs(title = "Régression polynomiale (loi de poisson) avec l'Age du nombre de réclamation",
+         y = "Moyenne des réclamations")
+# Magnifique
+# La régression polynomiale capte le signale de l'âge
+
+
 # - Group1
 table(data.analyse$Group1)
 # D'accord, bcp de niveaux faisons une analyse similaire à l'age
@@ -225,7 +245,9 @@ summary(data.analyse$Poldur)
 table(data.analyse$Poldur)
 # assez de donées pour chaque cat
 # Moyenne de réclamations par durée de la police
-moy_par_bonus <- data.analyse %>% group_by(Poldur) %>% summarise(
+
+moy_par_poldur <- data.analyse %>% group_by(Poldur) %>% summarise(
+
   Count=length(Numtppd), Moyenne=mean(Numtppd), dev_std=sd(Numtppd)
 )
 moy_par_poldur
@@ -313,40 +335,44 @@ table(data.analyse$Numtppd)
 ## 4. Regroupement
 ##
 
-## regroupement de Group2 selon
-v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'O')]
-v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
-t.test(v1, v2, var.equal = FALSE)$p.value
-#on regroupe O et P dans P
-data.analyse$Group2[which(data.analyse$Group2 == 'O')] <- 'P'
 
-v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'L')]
-v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
-t.test(v1, v2, var.equal = FALSE)$p.value
-#on regroupe PO et L dans P
-data.analyse$Group2[which(data.analyse$Group2 == 'L')] <- 'P'
+# ## regroupement de Group2 selon
+# Ne pas décommenter pour que la suite du fichier marche!
+# Sino
 
-v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'U')]
-v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
-t.test(v1, v2, var.equal = FALSE)$p.value
-#pvalue de 4.79%
-
-v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'S')]
-v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'T')]
-t.test(v1, v2, var.equal = FALSE)$p.value
-#on regroupe S et T dans S
-data.analyse$Group2[which(data.analyse$Group2 == 'T')] <- 'S'
-
-v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'S')]
-v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
-t.test(v1, v2, var.equal = FALSE)$p.value
-#tres petite pvalue
-
-v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'N')]
-v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'Q')]
-t.test(v1, v2, var.equal = FALSE)$p.value
-#on regroupe N et Q dans Q
-data.analyse$Group2[which(data.analyse$Group2 == 'N')] <- 'Q'
+# v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'O')]
+# v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
+# t.test(v1, v2, var.equal = FALSE)$p.value
+# #on regroupe O et P dans P
+# data.analyse$Group2[which(data.analyse$Group2 == 'O')] <- 'P'
+#
+# v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'L')]
+# v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
+# t.test(v1, v2, var.equal = FALSE)$p.value
+# #on regroupe PO et L dans P
+# data.analyse$Group2[which(data.analyse$Group2 == 'L')] <- 'P'
+#
+# v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'U')]
+# v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
+# t.test(v1, v2, var.equal = FALSE)$p.value
+# #pvalue de 4.79%
+#
+# v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'S')]
+# v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'T')]
+# t.test(v1, v2, var.equal = FALSE)$p.value
+# #on regroupe S et T dans S
+# data.analyse$Group2[which(data.analyse$Group2 == 'T')] <- 'S'
+#
+# v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'S')]
+# v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
+# t.test(v1, v2, var.equal = FALSE)$p.value
+# #tres petite pvalue
+#
+# v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'N')]
+# v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'Q')]
+# t.test(v1, v2, var.equal = FALSE)$p.value
+# #on regroupe N et Q dans Q
+# data.analyse$Group2[which(data.analyse$Group2 == 'N')] <- 'Q'
 
 ##
 ## On a donc
@@ -354,7 +380,7 @@ data.analyse$Group2[which(data.analyse$Group2 == 'N')] <- 'Q'
 ## Pour maintenant 6 classe
 # bref :
 data.analyse <- data.analyse %>% mutate(
-    Group2 = case_when(
+    NewGroup2 = case_when(
         Group2 %in% c("O", "P", "L") ~ "0PL",
         Group2 %in% c("S", "T") ~ "ST",
         Group2 %in% c("N", "Q") ~ "NQ",
@@ -364,22 +390,28 @@ data.analyse <- data.analyse %>% mutate(
 
 ## regroupement selon occupation
 
-v1 <- data.analyse$Numtppd[which(data.analyse$Occupation == 'Employed')]
-v2 <- data.analyse$Numtppd[which(data.analyse$Occupation == 'Housewife')]
-t.test(v1, v2, var.equal = FALSE)$p.value
-## Rien a regrouper ici
+
+# v1 <- data.analyse$Numtppd[which(data.analyse$Occupation == 'Employed')]
+# v2 <- data.analyse$Numtppd[which(data.analyse$Occupation == 'Housewife')]
+# t.test(v1, v2, var.equal = FALSE)$p.value
+# ## Rien a regrouper ici
+
 
 ##
 ## 5. Analyse en composantes principales
 ##
 
-data.analyse$crisk <- data.analyse$Group1
-data.analyse$is.female <- as.numeric(data.analyse$Gender == "Female")
-data.pca <- data.analyse[, c("Age", "crisk", "Bonus", "Poldur", "Value", "Density")]
+
+data.analyse$Power <- data.analyse$Group1
+data.pca <- data.analyse[, c("Age", "Power", "Bonus", "Poldur", "Value", "Density")]
 data.pca <- scale(data.pca, center = TRUE, scale = TRUE)
+
+# ACP
 acp <- PCA(data.pca, scale.unit = T)
+# Tableau
 acp$eig
 fviz_screeplot(acp, ncp=6)
+# dimensions 1 à 3
 weights <- data.frame(acp$var$coord[,1:3])
 weights$carac <- rownames(weights)
 weights.long <- reshape2::melt(weights)
@@ -390,10 +422,110 @@ ggplot(weights.long, aes(x=carac, fill=variable, y=value))+
     coord_flip()
 ggplot(mapping = aes(x=1:6, y=acp$eig[, 3])) + geom_point() + geom_line()
 
+# Graphique exploratoire
+data.points <- cbind(data.analyse, acp$ind$coord)
+# data.points <- data.points[data.points$Numtppd > 1, ]
+g_ind <- ggplot(data = data.points,
+                aes(Dim.1, Dim.2, col = Numtppd==0, size=Numtppd)) +
+    geom_point(alpha=0.25, size=3) +
+    geom_hline(yintercept = 0) +
+    geom_vline(xintercept = 0) +
+    # scale_color_gradient(low="green", high="red") +
+    xlab('CP1') +
+    ylab('CP2')  +
+    theme_minimal() + labs(col="Accidents?", title = "Nombre d'accidents en fonction des deux premières composantes principales")
+g_ind
+# La première composante semble bonne pour prédire un accident ...
+# L'ACP s'avère peu utile dans notre cas
+
+
 ##
 ## 6. Classification hiérarchique
 ##
 
-##
-## 7. Algorithme des k-moyennes
-##
+# On sélectionne le nombre de groupes
+# Ici, on va utiliser le jeux de données initiale sans modification
+# On enleve tout de même les 21 premières lignes
+set.seed(4400)
+data.cluster <- pg15training[-c(1:21), ][sample(100000, 10000), 3:20]
+data.cluster$Adind <- as.factor(data.cluster$Adind)
+data.cluster$Group2 <- as.factor(data.cluster$Group2)
+
+# dissim et clustering
+d <- daisy(data.cluster)
+hc_ward <- hclust(d, method = "ward.D")
+
+# choisir k
+factoextra::fviz_nbclust(
+    x = data.cluster, FUNcluster = hcut,
+    hc_method = "ward.D", method = "silhouette",
+    k.max = 5, diss = d)
+factoextra::fviz_nbclust(
+    x = data.cluster, FUNcluster = hcut,
+    hc_method = "ward.D", method = "wss",
+    k.max = 5, diss = d)
+# k=3 sera parfait, bon compromis et permet une bonne analyse
+
+# Jolie dendro
+k <- 3
+dend <- as.dendrogram(hc_ward)
+dend <- set(dend, "branches_k_color", k=k)
+dend <- set(dend, "labels_color", value = "white")
+plot(dend, main="Dendogramme avec la méthode ward.D et 3 groupes", ylab="Hauteur", lwd=4)
+
+# Ajoutez la colonne groupe
+type_ward <- cutree(tree=hc_ward, k=k)
+data.cluster$groupe <- factor(type_ward)
+
+# Analyse des variables continues
+# Tableau
+df <- pivot_longer(data.cluster, cols = c("Value", "Indtppd", "Indtpbi", "Density", "Exppdays"),
+                   names_to="variable",
+                   values_to="val") %>%
+    group_by(groupe, variable) %>%
+    summarise(
+        Count=length(val), Moyenne=mean(val), dev_std=sd(val)
+    )
+print(df[order(df$variable), ])
+# Graphiques
+ggplot(data.cluster, aes(x=Value, fill=groupe)) + geom_density(alpha=0.3)
+ggplot(data.cluster, aes(x=log(Indtppd), fill=groupe)) + geom_density(alpha=0.3)
+ggplot(data.cluster, aes(x=log(Indtpbi), fill=groupe)) + geom_density(alpha=0.3)
+ggplot(data.cluster, aes(x=Density, fill=groupe)) + geom_density(alpha=0.3)
+ggplot(data.cluster, aes(x=Exppdays, fill=groupe)) + geom_density(alpha=0.3) + xlim(360, 366)
+
+# Analyse des variables discrètes
+# Tableau
+# geom_bar(aes(y = after_stat(prop), x=val, fill=groupe), position="dodge")+
+# facet_wrap(~variable, scales="free_y") +
+# theme(legend.position = "bottom")
+df <- pivot_longer(data.cluster, cols = c("Numtppd", "Numtpbi", "Group1", "Age"),
+                   names_to="variable", values_to="val") %>% group_by(groupe, variable) %>% summarise(
+    Count=length(val), Moyenne=mean(val), dev_std=sd(val)
+)
+print(df[order(df$variable), ])
+# Graphiques
+ggplot(data.cluster, aes(x=Numtppd, fill=groupe, y=after_stat(prop))) + geom_bar(position = "dodge")
+ggplot(data.cluster, aes(x=Numtpbi, fill=groupe, y=after_stat(prop))) + geom_bar(position = "dodge")
+ggplot(data.cluster, aes(x=Group1, fill=groupe, y=after_stat(prop))) + geom_bar(position = "dodge")
+ggplot(data.cluster, aes(x=Age, fill=groupe, y=after_stat(prop))) + geom_bar(position = "dodge")
+
+# Analyse des variables cat.
+variables <- list("Gender", "Type", "Category", "Occupation", "Adind", "Group2")
+plots <- lapply(variables, function(var) {
+    proportions <- data.cluster %>%
+        group_by(groupe, !!sym(var)) %>%
+        summarise(Count = n()) %>%
+        mutate(Proportion = Count / sum(Count))
+
+    plot <- ggplot(proportions, aes(x = !!sym(var), y = Proportion, fill = groupe)) +
+        geom_bar(stat = "identity", position = "dodge")
+
+    return(plot)
+})
+plots[[1]]
+plots[[2]]
+plots[[3]]
+plots[[4]]
+plots[[5]]
+plots[[6]]
