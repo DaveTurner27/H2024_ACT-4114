@@ -23,7 +23,7 @@ knitr::opts_chunk$set(echo = FALSE)
 
 ```{r paquetages, message=FALSE, eval=TRUE, include=FALSE, echo = FALSE}
 ### Liste des paquetages
-liste.paquetage <- c("ggplot2", "dplyr", "CASdatasets", "knitr", "tidyverse", "FactoMineR", "DT", "factoextra", "plotly", "reshape2")
+liste.paquetage <- c("ggplot2", "dplyr", "CASdatasets", "knitr", "tidyverse", "FactoMineR", "DT", "factoextra", "plotly", "reshape2", "cluster", "dendextend")
 
 ### On installe les paquetages de la liste qu'on a pas déjà
 inst <- liste.paquetage %in% installed.packages()
@@ -34,6 +34,7 @@ lapply(liste.paquetage, require, character.only = TRUE)
 # Importation des données
 data(pg15training)
 data.analyse <- pg15training[-c(1:21), ]
+data.analyse$Adind <- factor(data.analyse$Adind)
 ```
 
 # Introduction
@@ -95,29 +96,29 @@ kable(
 
 ```
 
-Comme attendu, la majorité des observations sont à 0. La masse à zéro est en effet très importante. Elle représente environ 87,7% des observations. La majorité des observations se retrouvent entre 0 et 2 accidents inclusivement (99,6% des observations) . Quelques individus ont eu plus de 2 accidents avec un maximum de 7 pour une année. La moyenne de la variable est `r mean(data.analyse$Numtppd)` et la variance est `r var(data.analyse$Numtppd)`. Comme les données ne sont pas très dispersées, les GLM Poisson ou Binomiale seraient envisageables.
+Comme attendu, la majorité des observations sont à 0 sinistre. La masse à zéro est en effet très importante et représente environ 87,7% des observations. La majorité des observations se retrouvent entre 0 et 2 accidents inclusivement (99,6% des observations) . Quelques individus ont eu plus de 2 accidents avec un maximum de 7 pour une année. La moyenne de la variable est `r mean(data.analyse$Numtppd)` et la variance est `r var(data.analyse$Numtppd)`. Comme les données ne sont pas très dispersées, les GLM Poisson ou Binomiale seraient de bons modèles potentiels.
 
 ## Variables exogènes
 
 Pour commencer, les variables suivantes ne doivent pas être utilisées pour modéliser la fréquence d'accident de la couverture étudiée (`Numtppd`) :
 
--   `Polnum` (le numéro de police n'a pas d'impact sur le nombre d'accidents)
+-   `Polnum` (le numéro de police n'a pas d'impact sur le nombre d'accidents) ;
 
--   `Numtpbi` (cette variable serait inconnue lors d'une prédiction)
+-   `Numtpbi` (cette variable serait inconnue lors d'une prédiction) ;
 
--   `Indtppd` (cette variable serait inconnue lors d'une prédiction)
+-   `Indtppd` (cette variable serait inconnue lors d'une prédiction) ;
 
--   `Indtpbi` (cette variable serait inconnue lors d'une prédiction)
+-   `Indtpbi` (cette variable serait inconnue lors d'une prédiction) ;
 
--   `CalYear` (on doit pouvoir faire des prédictions sur d'autres années que 2009 et 2010)
+-   `CalYear` (on doit pouvoir faire des prédictions sur d'autres années que 2009 et 2010) ;
 
--   `Subgroup2` (exclue, car répétitive avec `group2` et trop de catégories)
+-   `Subgroup2` (exclue, car répétitive avec `group2` et trop de catégories).
 
-On regarde maintenant les variables exogènes et leurs liens avec la variable endogène. Pour certaines variables, la relation entre celle-ci et la moyenne des réclamations semble linéaire.
+On regarde maintenant les variables exogènes et leurs liens avec la variable endogène. Les distributions des variables sont aussi étudiées, mais ne seront pas présentées en profondeur, car elle sont moins intéressantes.
 
 **Age**
 
-Le nombre moyen d'accidents par `Age` ne semble pas linéairement lié avec l'age comme on peut le voir dans la figure 1. Il est possible de remarquer que la moyenne du nombre de réclamations est plus élevée pour les individus plus jeunes. Comme la relation semble complexe à modélisation, on pourrait regrouper les ages en groupes.
+Le nombre moyen d'accidents par `Age` ne semble pas linéairement lié avec l'age comme on peut le voir dans la figure 1. Il est possible de remarquer que la moyenne du nombre de réclamations est plus élevée pour les individus plus jeunes. Comme la relation semble complexe, on pourrait envisager une régression polynomiale. La figure 2 représente la figure 1 sur laquelle on a ajouté une courbe de régression de degré 7 construite avec un GLM poisson. Cette figure montre que cette technique capte bien le signal de l'âge sans capter le bruit. La technique sera donc envisagée lors de la construction d'un GLM.
 
 ```{r echo=FALSE}
 plot_moy_var <- function(var, xlabel="", ylabel="", mainlabel="", niv_conf=0.9,
@@ -142,8 +143,8 @@ plot_moy_var <- function(var, xlabel="", ylabel="", mainlabel="", niv_conf=0.9,
         labs(title = mainlabel, y = ylabel, x = xlabel) +
         theme_light() +
         theme(
-    plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
-    axis.title = element_text(size = 15, face = "bold", margin = margin(l = 20)),
+    plot.title = element_text(size = 17, face = "bold", margin = margin(b = 20)),
+    axis.title = element_text(size = 13, face = "bold", margin = margin(l = 20)),
   )
     
     # Plotly
@@ -154,34 +155,41 @@ plot_moy_var <- function(var, xlabel="", ylabel="", mainlabel="", niv_conf=0.9,
 }
 ```
 
-```{r Age, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd  par age", fig.width=10, fig.height=6, fig.align = "center"}
-plot_moy_var("Age", plotly = FALSE, xlabel = "Age", "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par age avec un IC de 90%", niv_conf = 0.9)
+```{r Age, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd  par age", fig.width=8, fig.height=4.8, fig.align = "center"}
+plot_moy_var("Age", plotly = FALSE, xlabel = "Age", "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par age\navec un IC de 90%", niv_conf = 0.9)
+```
+
+```{r Age_poly, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Régression polynomiale avec Age", fig.width=8, fig.height=4.8, fig.align = "center", fig.id=TRUE}
+plot_moy_var("Age", plotly = FALSE, xlabel = "Age", "Moyenne (Numtppd)", mainlabel = "Régression polynomiale de degré 7 sur la figure 1", niv_conf = 0.9)+
+    geom_smooth(data = data.analyse, aes(x = Age, y = Numtppd),
+                method = "glm", formula = y ~ poly(x, 7),
+                method.args = list(family = "poisson"), fill="red", alpha=0.25, col="red")
 ```
 
 **Bonus**
 
-La variable `Bonus` représente la valeur du système de bonus-malus c'est donc une variable d'expérience. Un bonus négatif représente un rabais et un bonus positif, une surcharge. Pour de plus amples détails, voir le paquetage CASdatasets sur CRAN.
+La variable `Bonus` représente la valeur du système de bonus-malus, C'est donc une variable d'expérience. Un bonus négatif représente un rabais et un bonus positif, une surcharge. Pour de plus amples détails, voir le paquetage CASdatasets sur CRAN.
 
-La variable `Bonus` semble prédictive pour le nombre d'accidents. En effet, comme on peut voir sur la figure 2, le lien est très linéaire excepté pour le `Bonus = 0`. La différence à zéro s'explique par le fait que tous les assurés âgés de 18 ans ont un bonus de 0 étant donné qu'ils viennent d'acquérir le droit de conduire. La moyenne du nombre d'accidents pour ce bonus est donc gonflée par les assurés de 18 ans. L'ajout d'une interaction entre `Age` et `Bonus` dans notre modèle prendrait en compte cette spécificité des données.
+La variable `Bonus` semble prédictive pour le nombre d'accidents. En effet, comme on peut voir sur la figure 3, le lien est logique et approximativement linéaire excepté pour le `Bonus = 0`. La différence à zéro s'explique par le fait que tous les assurés âgés de 18 ans ont un bonus de 0 étant donné qu'ils viennent d'acquérir le droit de conduire. La moyenne du nombre d'accidents pour ce bonus est donc gonflée par les assurés de 18 ans. L'ajout d'une interaction entre `Age` et `Bonus` dans notre modèle prendrait sans doute en compte cette spécificité des données.
 
-```{r Bonus, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd par Bonus", fig.width=10, fig.height=6, fig.align = "center"}
-plot_moy_var("Bonus", plotly = FALSE, size = 2, niv_conf = 0.9,xlabel = "Bonus", ylabel = "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par bonus avec un IC de 90%")
+```{r Bonus, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd par Bonus", fig.width=8, fig.height=4.8, fig.align = "center"}
+plot_moy_var("Bonus", plotly = FALSE, size = 2, niv_conf = 0.9,xlabel = "Bonus", ylabel = "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par bonus\navec un IC de 90%") #+ geom_vline(xintercept=0, col="red")
 ```
 
-**Group1 (Risque de crédit)**
+**Group1 (Puissance du moteur)**
 
-La signification de la variable `group1` est inconnue. Après avoir consulté Olivier Côté, actuaire en chef, on pose que la variable `group1` représente le risque de crédit, puisque la relation illustrée peut correspondre à ce type de variable (un score plus élevée implique que la personne est moins responsable) . On renomme donc la variable `crisk`. La relation entre la moyenne de réclamations et la variable `crisk` est linéaire comme on peut le voir sur la figure 3.
+La variable `Group1` représente la puissance du moteur. La variable est discrète allant de 1 jusqu'à 20. On renomme donc la variable `Power` pour faciliter l'interprétation. La relation entre la moyenne de réclamations et la variable `Power` est linéaire comme on peut le voir sur la figure 4. Ainsi, plus le moteur est puissant, plus le nombre de réclamations augmente.
 
-```{r Group1, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd par Group1", fig.width=10, fig.height=6, fig.align = "center"}
-data.analyse$crisk <- data.analyse$Group1
-plot_moy_var("Group1", plotly = FALSE, size = 0.7, niv_conf = 0.9,xlabel = "Risque de credit", ylabel = "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par risque de crédit\navec un IC de 90%")
+```{r Group1, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Moyenne de Numtppd par Group1", fig.width=8, fig.height=4.8, fig.align = "center"}
+data.analyse$Power <- data.analyse$Group1
+plot_moy_var("Power", plotly = FALSE, size = 0.7, niv_conf = 0.9,xlabel = "Puissance moteur", ylabel = "Moyenne (Numtppd)", mainlabel = "Moyenne du nombre de réclamations par puissance du moteur\navec un IC de 90%")
 ```
 
 **Occupation**
 
-La variable `occupation` semble importante pour modéliser la fréquence. La figure 4 illustre bien cette observation avec le graphique de proportion d'accidents pour chaque occupation. On voit également que le sous-groupe des retraités a significativement moins d'accident que le reste de la population. De plus, on va éventuellement faire des regroupements pour diminuer le nombre de niveaux. Ceci sera effectué ultérieurement dans la section (Regroupement).
+La variable `Occupation` semble importante pour modéliser la fréquence. La figure 5 illustre bien cette observation avec le graphique de proportion d'accidents pour chaque occupation. On voit également que le sous-groupe des retraités a significativement moins d'accidents que le reste de la population.
 
-```{r Occupation, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Proportions de Numtppd par Occupation", fig.width=10, fig.height=6, fig.align = "center"}
+```{r Occupation, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Proportions de Numtppd par Occupation", fig.width=8, fig.height=4.8, fig.align = "center"}
 # Il faut réaranger les niveaux d'occupation
 data.analyse$Occupation <- factor(data.analyse$Occupation,levels(data.analyse$Occupation)[c(3, 4, 1, 2, 5)])
 ggplot(data.analyse, aes(x=Numtppd))+
@@ -193,16 +201,16 @@ ggplot(data.analyse, aes(x=Numtppd))+
     )+
     theme_light() +
     theme(
-    plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
-    axis.title = element_text(size = 15, face = "bold", margin = margin(l = 20)),
+    plot.title = element_text(size = 17, face = "bold", margin = margin(b = 20)),
+    axis.title = element_text(size = 13, face = "bold", margin = margin(l = 20)),
     )
 ```
 
 **Densité de population**
 
-Plus la variable `density` est grande, plus la fréquence d'accidents est élevée. La figure 5 illustre parfaitement le phénomène. Il faut cependant rester prudent ici, car il y a beaucoup plus d'observations avec 0 sinistre que d'observations avec 1, 2, 3 et plus.
+Plus la variable `density` est grande, plus la fréquence d'accidents est élevée. La figure 6 illustre parfaitement le phénomène. Il faut cependant rester prudent ici, car il y a beaucoup plus d'observations avec 0 sinistre que d'observations avec 1, 2, 3 et plus.
 
-```{r Density, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Effet de la variable density", fig.width=10, fig.height=6, fig.align = "center"}
+```{r Density, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Effet de la variable density", fig.width=8, fig.height=4.8, fig.align = "center"}
 # Il faut grouper le # d'accidents > 3 en un groupe.
 data.analyse <- data.analyse %>% mutate(
     nb_sin_group = case_when(
@@ -212,53 +220,55 @@ data.analyse <- data.analyse %>% mutate(
         TRUE ~ "3 et plus"
     )
 )
-ggplot(data.analyse, aes(y=as.factor(nb_sin_group), x = Density))+
-    geom_boxplot() + 
+#col = nb_sin_group
+ggplot(data.analyse, aes(y = nb_sin_group, x = Density)) +
+    geom_boxplot(linewidth = 0.65, show.legend = FALSE) + 
     labs(
-        title="Diagramme en boites à moustaches de la densité de population\nselon le nombre de sinistres",
-        x="Density",
-        y="Nombre de sinistre"
-    )+
+        title = "Diagramme en boites à moustaches de la densité de population\nselon le nombre de sinistres",
+        x = "Density",
+        y = "Nombre de sinistre"
+    ) +
     theme_light() +
     theme(
-    plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
-    axis.title = element_text(size = 15, face = "bold", margin = margin(l = 20)),
+        plot.title = element_text(size = 15, face = "bold", margin = margin(b = 20)),
+        axis.title = element_text(size = 15, face = "bold", margin = margin(l = 20))
     )
+
 ```
 
 **Autres observations pertinentes**
 
 On présente rapidement certains faits pertinents observés durant l'analyse exploratoire.
 
--   `Gender` : Les hommes font plus d'accidents que les femmes.
+-   `Gender` : Les hommes font plus d'accidents que les femmes. De plus, il y a plus d'homme que de femme dans notre jeux de données (63.4 % homme, 36.6 % femme).
 
 -   `Category` : Les plus petites automobiles ont tendance à faire plus d'accidents.
 
--   `Type` : La variable est ordinale.
+-   `Type` : La variable est catégorielle ordinale et les groupes sont légèrement disproportionnés.
 
--   `Poldur` : Plus la variable est grande, moins le nombre d'accidents est grand.
+-   `Poldur` : Plus la variable est grande, moins le nombre d'accidents est grand. La variable est discrète.
 
--   `Adind` : Lorsque la variable vaut 0 (l'assuré à juste une assurance responsabilité civile) le nombre d'accidents augmente.
+-   `Adind` : Lorsque la variable vaut 0 (l'assuré a juste une assurance responsabilité civile), le nombre d'accidents augmente.
 
--   `Group2` : Un regroupement est envisageable.
+-   `Group2` : Cette variable représente la région. Un regroupement est envisageable. On renomme la variable par `Region`.
 
 -   `Value` : Le nombre d'accidents semble très légèrement augmenter lorsque la valeur du véhicule augmente.
 
 # Regroupement
 
-On fait des tests de *student* sur les variables `Group2` et `Occupation` afin de faire des regroupements.
+On souhaite diminuer le nombre de niveaux pour certaines variables à l'aide de regroupements. Pour ce faire, on teste si la moyenne d'accidents d'un groupe est statistiquement différente d'un autre. Plus formellement, on fait des tests de *student.* Les variables `Region` et `Occupation` sont propices à ces tests.
 
-On propose un exemple avec la variable de région `Group2`. On essaye de regrouper la région 'O' et 'P'. Les hypothèses sont :
+On propose un exemple de test avec la variable de région `Region`. On essaye de regrouper la région 'O' et 'P'. L'hypothèse nulle et alternative sont :
 
 ```{=tex}
 \begin{align*}
-    \mathcal{H}_0 : \mu_O - \mu_P = 0 \\
-    \mathcal{H}_1 : \mu_O - \mu_P \neq 0
+    \mathcal{H}_0 : \mu_O - \mu_P = 0, \\
+    \mathcal{H}_1 : \mu_O - \mu_P \neq 0.
 \end{align*}
 ```
-On suppose des variances différentes entre les régions. Sous $\mathcal{H}_0$ la distribution de $(\hat{\mu_O} - \hat{\mu_P})$ est une loi de *student*.
+*La variable* $\mu_i$ est la moyenne de réclamations dans la région $i$.
 
-Pour ce test, on trouve un seuil observé de 71 %. On ne rejette donc pas l'hypothèse nulle comme quoi les moyennes sont semblables et on regroupe ces régions.
+Pour ces tests, on suppose des variances différentes entre les régions. Le seuil observé pour ce test est de 71 %. On ne rejette donc pas l'hypothèse nulle comme quoi les moyennes sont semblables et on regroupe ces régions.
 
 ```{r t-test, echo=FALSE, eval=FALSE}
 v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'O')]
@@ -267,7 +277,7 @@ test_1 <- t.test(v1, v2, var.equal = FALSE)$p.value
 test_1
 ```
 
-Le tableau suivant énumère les regroupements effectués. On remarque que pour la variable `Occupation`, aucun regroupement n'a été fait.
+Le tableau suivant (Table 3) énumère les regroupements effectués avec la variable `Region`. Pour la variable `Occupation` aucun regroupement n'a été fait.
 
 ```{r tableau de regroupement, echo=FALSE}
 regroupe <- data.frame(
@@ -278,30 +288,31 @@ kable(
     regroupe, format = "markdown",
     caption = "Regroupement de régions", row.names = F, label = "tableau3", col.names = c("Nouvelles Régions", "Régions parentes")
 )
+data.analyse$Region <- data.analyse$Group2
 data.analyse <- data.analyse %>% mutate(
-    Group2.modif = case_when(
-        Group2 %in% c("O", "P", "L") ~ "0PL",
-        Group2 %in% c("S", "T") ~ "ST",
-        Group2 %in% c("N", "Q") ~ "NQ",
-        TRUE ~ Group2
+    Region = case_when(
+        Region %in% c("O", "P", "L") ~ "0PL",
+        Region %in% c("S", "T") ~ "ST",
+        Region %in% c("N", "Q") ~ "NQ",
+        TRUE ~ Region
     )
 )
 ```
 
-# Création de nouvelles variables explicatives
+# Création d'une nouvelles variable explicative
 
-On voudrait créer une variable qui indique si l'assuré a 18 ans. Cela pourrait être utile lors de la création d'un modèle. En effet, il serait plus facile de gérer les problèmes engendrés par l'age de 18 ans. Par exemple, la variable `Bonus` est toujours de 0 pour les assurés de 18 ans. On va donc créer la variable `is_18` qui vaut 0 si le risque a plus de 18 ans et 1 si le risque a 18 ans.
+On voudrait créer une variable qui indique si l'assuré a 18 ans. Cela pourrait être utile lors de la création d'un modèle. En effet, il serait plus facile de gérer les problèmes engendrés par l'âge de 18 ans. Par exemple, la variable `Bonus` est toujours de 0 pour les assurés de 18 ans. On va donc créer la variable `Is_18` qui vaut 0 si le risque a plus de 18 ans et 1 si le risque a 18 ans.
 
 ```{r creation de is_18, echo=FALSE}
-data.analyse$is.18 <- data.analyse$Age == 18
+data.analyse$Is_18 <- as.factor(as.numeric(data.analyse$Age == 18))
 ```
 
 # Analyse en composantes principales
 
-On fait un l'analyse en composante principales avec les variables numériques : `Age`, `crisk`, `Bonus`, `Poldur`, `Value` et `Density`. On présente dans la table 4 ci-dessous la variance pour chaque composante principale, ainsi que la variance cumulée.
+Dans cette section, on présente une l'analyse en composantes principales avec les variables numériques : `Age`, `Power`, `Bonus`, `Poldur`, `Value` et `Density`. On présente dans la table 4 ci-dessous la variance pour chaque composante principale, ainsi que la variance cumulée.
 
 ```{r PCA, echo=FALSE}
-data.pca <- data.analyse[, c("Age", "crisk", "Bonus", "Poldur", "Value", "Density")]
+data.pca <- data.analyse[, c("Age", "Power", "Bonus", "Poldur", "Value", "Density")]
 data.pca <- scale(data.pca, center = TRUE, scale = TRUE)
 acp <- PCA(data.pca, scale.unit = T, graph = FALSE)
 ```
@@ -314,51 +325,226 @@ kable(
 )
 ```
 
-On voit qu'il serait difficile de représenter un haut pourcentage de la variabilité avec moins de 6 composantes principales. Bref, on ne peut pas adéquatement réduire la dimension avec l'ACP sans perdre de l'information.
+On voit qu'il serait difficile de représenter un haut pourcentage de la variabilité avec moins de 6 composantes principales. Bref, on ne peut pas adéquatement réduire la dimension avec l'ACP sans perdre de l'information. De plus, les composantes principales sont très difficilement interprétables comme on peut le voir dans la figure 7 ci-dessous qui représente la contribution des variables dans les deux premières composantes principales.
 
-```{r, include=FALSE}
-fviz_screeplot(acp, ncp=6)
-```
-
-```{r, include=FALSE}
+```{r PCA_GRAPH, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Graphique des deux premières composantes principales", fig.align = "center", fig.width=8, fig.height=4.8}
 fviz_pca_var(acp,
              col.var = "contrib",
-             gradient.cols = c("#00AABB", "#E7F903", "#FF4E07"),
+             # gradient.cols = c("#00AAFF", "#FF4410"),
              repel = TRUE)
-
-data.points <- cbind(data.analyse, acp$ind$coord)
-data.points <- data.points[data.points$Numtppd > 1, ]
-g_ind <- ggplot(data = data.points,
-             aes(Dim.1, Dim.2, col = as.factor(Numtppd))) +
-  geom_point(alpha=0.5, size=3) +
-    geom_hline(yintercept = 0) +
-    geom_vline(xintercept = 0) +
-  # scale_color_gradient(low="green", high="red") +
-  xlab('CP1') +
-  ylab('CP2')  +
-  theme_minimal() + labs(col="Nombre d'accidents", title = "Nombre d'accidents en fonction des deux premières composantes principales")
-g_ind
-```
-
-```{r, message=FALSE, warning=FALSE, include=FALSE}
-weights <- data.frame(acp$var$coord[,1:3])
-weights$carac <- rownames(weights)
-weights.long <- reshape2::melt(weights)
-
-ggplot(weights.long, aes(x=carac, fill=variable, y=value))+
-    geom_bar(stat="identity",position=PositionDodge)+
-    facet_grid(~variable)+
-    theme(legend.position="top",axis.text.x = element_text(angle = 90))+
-    coord_flip()
 ```
 
 # Classification hiérarchique
 
-# Algorithme des k-moyennes
+Dans cette section, on effectue une classification hiérarchique. Le but est de mieux comprendre le jeu de données à notre disposition en créant une partition pour essayer d'en tirer des conclusions.
+
+## Partitionnement en k groupes
+
+Pour ce faire, on utilise un échantillon de 10 % des données. On utilise le jeu de données original sans regroupements. On retire cependant les colonnes `PolNum` et `CalYear` pour ne pas nuire à notre analyse. La mesure de similarité utilisée dans notre étude est la similarité de *Gower* ainsi que la méthode de *Ward* pour former les groupes. La similarité de *Gower* est utilisée, car elle permet de traiter des variables numériques et catégorielles.
+
+Les figures 8 et 9 nous aident à choisir un nombre de groupes optimal pour l'analyse. La figure 8 qui représente la *silhouette* moyenne en fonction du nombre de groupes nous suggère d'utiliser k = 2 groupes, mais elle suggère que 3 groupes serait une approche pertinente également. Le graphique 9 suggère que 2 ou 3 groupes serait une option intéressante. On décide d'utiliser k = 3 groupes, car cela permet une meilleure analyse. En effet, cela permet de garder un certain niveau de complexité qui ne serait pas présent pour 2 groupes.
+
+```{r warning=FALSE, echo=FALSE, fig.cap="Nombre de groupes optimal (Silhouette)", fig.align = "center", fig.width=8, fig.height=4.8}
+set.seed(4400)
+data.cluster <- data.analyse[sample(100000, 10000), 3:20]
+
+d <- daisy(data.cluster)
+hc_ward <- hclust(d, method = "ward.D")
+factoextra::fviz_nbclust(
+    x = data.cluster, FUNcluster = hcut,
+    hc_method = "ward.D", method = "silhouette",
+    k.max = 5, diss = d) +
+    theme(
+        plot.title = element_text(size = 17, face = "bold", margin = margin(b = 20)),
+        axis.title = element_text(size = 13, face = "bold", margin = margin(l = 20))
+    )+ labs(title = "Nombre optimal de groupes", x="k", y="Silhouette moyenne")
+```
+
+```{r warning=FALSE, echo=FALSE, fig.cap="Nombre de groupes optimal (WSS)", fig.align = "center", fig.width=8, fig.height=4.8}
+factoextra::fviz_nbclust(
+    x = data.cluster, FUNcluster = hcut,
+    hc_method = "ward.D", method = "wss",
+    k.max = 5, diss = d) +
+    theme(
+        plot.title = element_text(size = 17, face = "bold", margin = margin(b = 20)),
+        axis.title = element_text(size = 13, face = "bold", margin = margin(l = 20))
+    ) + labs(title = "Nombre optimal de groupes", x="k", y="SST intra")
+```
+
+On présente maintenant le dendrogramme (figure 10) formé par l'algorithme. Les trois groupes sont de couleurs différentes dans le graphique. On voit bien que le groupe 1 (rouge) est définitivement un "bon" groupe. On voit que pour le groupe 2 et 3, on aurait pu aller chercher un peu plus d'hétérogénéité en utilisant un nombre de groupes plus important, mais on voit également que notre choix de k = 3 n'est pas mauvais.
+
+```{r echo=FALSE, fig.align="center", fig.cap="Dendrogramme", warning=FALSE, fig.width=8, fig.height=4.8}
+k <- 3
+
+# plot(hc_ward, hang = -1:7)
+# rect.hclust(hc_ward, h = 35, border = 2:(k+1))
+dend <- as.dendrogram(hc_ward)
+dend <- set(dend, "branches_k_color", k=k)
+dend <- set(dend, "labels", value = NULL)
+# dend <- set(dend, "leaves_cex", value = 1.5)
+
+# ggplot(as.ggdend(dend)) + 
+#   labs(title = "Dendogramme avec la méthode ward.D et 3 groupes", y="Hauteur")
+
+plot(dend, main="Dendogramme avec la méthode ward.D et 3 groupes", ylab="Hauteur", lwd=3, cex.main = 1.55, cex.lab=1.35)
+# legend(x= 10, y=-5, bty = "n", legend = c("Groupe 1", "Groupe 2", "Groupe 3"), col = c("red", "green4", "blue"), lwd=2, horiz = TRUE)
+
+# Ajoutez la colonne groupe
+type_ward <- cutree(tree=hc_ward, k=k)
+data.cluster$groupe <- factor(type_ward)
+```
+
+```{r eval=FALSE, echo=FALSE}
+# Analyse des variables continues
+# Tableau
+df1 <- pivot_longer(data.cluster, cols = c("Value", "Indtppd", "Indtpbi", "Density", "Exppdays"),
+                   names_to="variable",
+                   values_to="val") %>%
+    group_by(groupe, variable) %>%
+    summarise(
+        Count=length(val), Moyenne=mean(val), dev_std=sd(val)
+    )
+# print(df1[order(df$variable), ])
+# Graphiques
+ggplot(data.cluster, aes(x=Value, fill=groupe)) + geom_density(alpha=0.3)
+ggplot(data.cluster, aes(x=log(Indtppd), fill=groupe)) + geom_density(alpha=0.3)
+ggplot(data.cluster, aes(x=log(Indtpbi), fill=groupe)) + geom_density(alpha=0.3)
+ggplot(data.cluster, aes(x=Density, fill=groupe)) + geom_density(alpha=0.3)
+ggplot(data.cluster, aes(x=Exppdays, fill=groupe)) + geom_density(alpha=0.3) + xlim(360, 366)
+```
+
+```{r eval=FALSE, echo=FALSE}
+
+# Analyse des variables discrètes
+# Tableau
+# geom_bar(aes(y = after_stat(prop), x=val, fill=groupe), position="dodge")+
+# facet_wrap(~variable, scales="free_y") +
+# theme(legend.position = "bottom")
+df2 <- pivot_longer(data.cluster, cols = c("Numtppd", "Numtpbi", "Group1", "Age"),
+                   names_to="variable", values_to="val") %>% group_by(groupe, variable) %>% summarise(
+    Count=length(val), Moyenne=mean(val), dev_std=sd(val)
+)
+# print(df2[order(df$variable), ])
+# Graphiques
+ggplot(data.cluster, aes(x=Numtppd, fill=groupe, y=after_stat(prop))) + geom_bar(position = "dodge")
+ggplot(data.cluster, aes(x=Numtpbi, fill=groupe, y=after_stat(prop))) + geom_bar(position = "dodge")
+ggplot(data.cluster, aes(x=Group1, fill=groupe, y=after_stat(prop))) + geom_bar(position = "dodge")
+ggplot(data.cluster, aes(x=Age, fill=groupe, y=after_stat(prop))) + geom_bar(position = "dodge")
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# Analyse des variables cat.
+variables <- list("Gender", "Type", "Category", "Occupation", "Adind", "Group2")
+plots <- lapply(variables, function(var) {
+    proportions <- data.cluster %>%
+        group_by(groupe, !!sym(var)) %>%
+        summarise(Count = n()) %>%
+        mutate(Proportion = Count / sum(Count))
+
+    plot <- ggplot(proportions, aes(x = !!sym(var), y = Proportion, fill = groupe)) +
+        geom_bar(stat = "identity", position = "dodge")
+
+    return(plot)
+})
+```
+
+```{r eval=FALSE}
+plots[[1]]
+plots[[2]]
+plots[[3]]
+plots[[4]]
+plots[[5]]
+plots[[6]]
+```
+
+## Analyse
+
+Après avoir analysé les distributions de toutes les variables en fonction des groupes, nous sommes capables de mieux comprendre chaque élément de la partition. On présente la table 5 qui contient les moyennes des variables critiques pour comprendre le partitionnement effectué. Nous allons y faire référence ultérieurement.
+
+```{r echo=FALSE}
+moy_indbi <- unlist((data.cluster %>% group_by(groupe) %>% summarise(mean(Indtpbi)))[, 2])
+moy_indpd <- unlist((data.cluster %>% group_by(groupe) %>% summarise(mean(Indtppd)))[, 2])
+moy_numbi <- 1000*unlist((data.cluster %>% group_by(groupe) %>% summarise(mean(Numtpbi)))[, 2])
+moy_numpd <- 1000*unlist((data.cluster %>% group_by(groupe) %>% summarise(mean(Numtppd)))[, 2])
+moy_density <- unlist((data.cluster %>% group_by(groupe) %>% summarise(mean(Density)))[, 2])
+moy_age <- unlist((data.cluster %>% group_by(groupe) %>% summarise(mean(Age)))[, 2])
+mat <- rbind(moy_indbi, moy_indpd, moy_numbi, moy_numpd, moy_density, moy_age)
+rownames(mat) <- c("Montant sinistre (BI)", "Montant sinistre (PD)", "Nombre de sinistres (BI) x 1000", "Nombre de sinistres (PD) x 1000", "Densité de population", "Age")
+colnames(mat) <- c("Groupe 1 (rouge)", "Groupe 2 (vert)", "Groupe 3 (bleu)")
+mat <- as.data.frame(mat)
+kable(
+    mat, format = "markdown",
+    caption = "Moyennes de certaines variables par groupe", row.names = T, label = "tableau5", digits = 1,
+)
+```
+
+**Premier groupe**
+
+Le groupe 1 (représentant environ 13,3 % de l'échantillon) se caractérise par une densité de population plus élevée que les autres. Le graphique 11 permet de voir qu'en effet, le groupe 1 possède la densité de population la plus importante. En examinant la distribution de la variable `Region`, on comprend rapidement ce qui explique cette grande densité de population. En effet, ce groupe est presque entièrement contenu dans la région R (fort probablement la métropole "Paris"), comme l'illustre la figure 12. Ce groupe est également le plus risqué en terme de fréquence d'accidents et de sévérité (voir tableau 5) et de loin.
+
+```{r echo=FALSE, fig.align="center", fig.cap="Distribution de la variable densité (classification hiérarchique)", warning=FALSE, fig.width=10, fig.height=6, message=FALSE}
+ggplot(data.cluster, aes(x=Density, fill=groupe)) + geom_density(alpha=0.3) +
+    theme_bw()+
+    theme(
+        plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
+        axis.title = element_text(size = 15, face = "bold", margin = margin(l = 20))
+    )+
+    labs(title = "Distribution de la variable density selon le groupe de classification", y="Fonction de densité estimée")
+```
+
+```{r echo=FALSE, fig.align="center", fig.cap="Distribution de la variable région (classification hiérarchique)", warning=FALSE, fig.width=10, fig.height=6}
+plots[[6]] + labs(title="Distribution de la région selon le groupe de classification", x="Région") + theme_bw() +
+    theme(
+        plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
+        axis.title = element_text(size = 15, face = "bold", margin = margin(l = 20))
+    )
+```
+
+**Deuxième groupe**
+
+Le groupe 2 (représentant environ 41,7 % de l'échantillon) contient beaucoup de personnes retraitées et généralement plus âgées. En effet, la moyenne d'âge de la Table 5 confirme nos propos. On remarque aussi que ce groupe possède la meilleure expérience (faible fréquence et faible sévérité). Ce groupe est presque entièrement assuré "des deux côtés". En bref, ce groupe représente des clients fiables et responsables.
+
+**Troisième groupe**
+
+Le groupe 3 (représentant environ 45,0 % de l'échantillon) est plus difficile à interpréter. Rien ne ressort particulièrement de ce groupe. Comme le groupe 2 est interprété comme des bons clients, on pourrait potentiellement voir ce groupe comme des clients de moins bonne qualité. On note cependant que même s'ils sont de moins bons clients, ils restent plus abordables que les personnes de la région R (du groupe 1).
+
+**Dernière remarque**
+
+Avant de conclure cette section, on présente le graphique 13 qui est très intéressant vis-à-vis de notre analyse. Ce graphique présente la proportion de gens qui se procure une assurance pour dommage responsable sur son véhicule. D'abord, on voit bien que le groupe 2 est responsable et donc prend une couverture supplémentaire, ce qui n'est pas surprenant. Ensuite, le groupe 3 est moins enclin à se procurer cette couverture supplémentaire, il est composé de personnes sans doute moins responsables et plus jeunes. Finalement, le pire groupe, soit le groupe 1, sont environ 50 % à se procurer cette couverture, ce qui est plus important que le groupe bleu. On explique l’étrangeté du phénomène par le fait que les gens du groupe 1 représente la région R. La région ne nous dis pas si la personne est responsable ou non. En d'autres mots, ce groupe ne représente pas un type de personne, mais plutôt une région qui contient des personnes responsables et moins responsables.
+
+```{r echo=FALSE, fig.align="center", fig.cap="Proportion de la variable Adind (classification hiérarchique)", warning=FALSE, fig.width=10, fig.height=6}
+plots[[5]] + labs(title="Proportion de couverture personelle selon le groupe de classification", x="Adind") + theme_bw()+
+    theme(
+        plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
+        axis.title = element_text(size = 15, face = "bold", margin = margin(l = 20))
+    )
+```
+
+**En resumé**
+
+On retient donc que la région R est vraiment spéciale dans notre jeu de données. C'est une région dangereuse pour l'activité automobile, car elle est grandement peuplée. On retient aussi qu'en dehors de cette région, on retrouve un groupe de personnes plus jeunes et probablement moins responsables, ainsi qu'un groupe de personnes plus âgées, plus responsables et en général moins dangereux.
 
 # Conclusion
 
+On veut construire un modèle pour prédire le nombre de réclamations. La variable réponse étant discrète : les modèles de régression généralisée avec loi de Poisson, Binomiale ou Binomiale négative sont tous envisageables. Cependant, comme la variance de la variable réponse n'est pas extrêmement plus grande que sa moyenne, on ne s'attend pas à utiliser une loi Binomiale Négative. D'autres modèles d'apprentissage automatique plus avancés que la régression seront également exploitées (par exemple : *Random Forest*, *Gradient Boosting*, etc).
+
+On retient de notre analyse exploratoire certains points clés :
+
+-   l'âge de 18 ans interagi avec la variable `Bonus` ;
+
+-   la relation entre l'âge et la variable dépendante est complexe ;
+
+-   la majorité des observations de la variable endogène sont de 0. L'étendu et la variance de la variable sont relativement faibles ;
+
+-   la région R semble se démarquer (région métropolitaine et risquée) ;
+
+-   les variables exogènes présentent un lien logique avec la variable endogène (par exemple : les personnes âgées et retraitées font moins d'accidents).
+
 # Bibliographie
+
+Charpentier, Arthur (2015, juillet 20). Pricing Game (100% Actuaires). [Freakonometrics]. Récupéré de https://doi.org/10.58079/ov01
+
+\newpage
 
 # Annexe
 
@@ -401,5 +587,3 @@ Le nombre de jours de couverture (maximum 365).
 **Taille du jeu de données :**
 
 100 000 observations de 21 variables.
-
-## Déclaration de l’utilisation de l’intelligence artificielle
