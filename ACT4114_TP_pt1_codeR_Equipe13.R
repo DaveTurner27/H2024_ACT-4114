@@ -15,18 +15,19 @@
 #   4. Regroupement
 #   5. Analyse en composantes principales
 #   6. Classification hiérarchique
-#
 
 ##
 ## 1. Importation des données et paquetages
 ##
 
 # Paquetages requis
+
 liste.paquetage <- c(
     "ggplot2", "dplyr", "CASdatasets", "knitr", "tidyverse",
     "FactoMineR", "DT", "factoextra", "plotly", "reshape2",
     "cluster", "dendextend"
 )
+
 
 # On installe les paquetages de la liste qu'on a pas déjà
 inst <- liste.paquetage %in% installed.packages()
@@ -44,6 +45,7 @@ data.analyse <- pg15training
 ##
 ## 2. Pré-traitement des variables / Correction d'erreurs
 ##
+
 str(data.analyse)
 summary(data.analyse)
 
@@ -61,11 +63,13 @@ nrow(data.analyse)
 ##
 ## 3. Analyse exploratoire des données
 ##
+
 colnames(data.analyse)
 
 ##
 ## Numtppd (endogène)
 ##
+
 (freq <- table(data.analyse$Numtppd))
 fmp <- freq / 100000
 fmp
@@ -78,10 +82,12 @@ summary(data.analyse$Numtppd)
 # Très petite étendue
 # beaucoup de 0
 
+
 ## Exppdays (exposition)
 table(data.analyse$Exppdays)
 summary(data.analyse$Exppdays)
 hist(data.analyse$Exppdays / 365)
+
 # Très grande proportion de police complète (365 jours)!
 
 ##
@@ -181,6 +187,7 @@ ggplot(moy_par_age) + geom_point(aes(x=Age, y=Moyenne), col="darkblue", size=2.5
     labs(title = "Moyenne de réclamation pour la couverture étudiée\nen fonction de l'age avec un IC approximatif 80%",
          y="Moyenne des réclamtations")
 # relation non linéaire, mais on constate que les jeunes sont plus dangereux que les vieux
+
 # Relation très complexe, regression poly?
 ggplot() +
     geom_smooth(data = data.analyse, aes(x = Age, y = Numtppd),
@@ -238,7 +245,9 @@ summary(data.analyse$Poldur)
 table(data.analyse$Poldur)
 # assez de donées pour chaque cat
 # Moyenne de réclamations par durée de la police
+
 moy_par_poldur <- data.analyse %>% group_by(Poldur) %>% summarise(
+
   Count=length(Numtppd), Moyenne=mean(Numtppd), dev_std=sd(Numtppd)
 )
 moy_par_poldur
@@ -326,7 +335,11 @@ table(data.analyse$Numtppd)
 ## 4. Regroupement
 ##
 
+
 # ## regroupement de Group2 selon
+# Ne pas décommenter pour que la suite du fichier marche!
+# Sino
+
 # v1 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'O')]
 # v2 <- data.analyse$Numtppd[which(data.analyse$Group2 == 'P')]
 # t.test(v1, v2, var.equal = FALSE)$p.value
@@ -367,7 +380,7 @@ table(data.analyse$Numtppd)
 ## Pour maintenant 6 classe
 # bref :
 data.analyse <- data.analyse %>% mutate(
-    Group2 = case_when(
+    NewGroup2 = case_when(
         Group2 %in% c("O", "P", "L") ~ "0PL",
         Group2 %in% c("S", "T") ~ "ST",
         Group2 %in% c("N", "Q") ~ "NQ",
@@ -377,14 +390,17 @@ data.analyse <- data.analyse %>% mutate(
 
 ## regroupement selon occupation
 
+
 # v1 <- data.analyse$Numtppd[which(data.analyse$Occupation == 'Employed')]
 # v2 <- data.analyse$Numtppd[which(data.analyse$Occupation == 'Housewife')]
 # t.test(v1, v2, var.equal = FALSE)$p.value
 # ## Rien a regrouper ici
 
+
 ##
 ## 5. Analyse en composantes principales
 ##
+
 
 data.analyse$Power <- data.analyse$Group1
 data.pca <- data.analyse[, c("Age", "Power", "Bonus", "Poldur", "Value", "Density")]
@@ -405,6 +421,7 @@ ggplot(weights.long, aes(x=carac, fill=variable, y=value))+
     theme(legend.position="top",axis.text.x = element_text(angle = 90))+
     coord_flip()
 ggplot(mapping = aes(x=1:6, y=acp$eig[, 3])) + geom_point() + geom_line()
+
 # Graphique exploratoire
 data.points <- cbind(data.analyse, acp$ind$coord)
 # data.points <- data.points[data.points$Numtppd > 1, ]
@@ -420,6 +437,7 @@ g_ind <- ggplot(data = data.points,
 g_ind
 # La première composante semble bonne pour prédire un accident ...
 # L'ACP s'avère peu utile dans notre cas
+
 
 ##
 ## 6. Classification hiérarchique
@@ -511,4 +529,3 @@ plots[[3]]
 plots[[4]]
 plots[[5]]
 plots[[6]]
-
