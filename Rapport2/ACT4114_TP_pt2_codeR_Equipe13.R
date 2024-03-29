@@ -37,46 +37,47 @@ lapply(liste.paquetage, require, character.only = TRUE)
 
 ## Charger les données en R
 # Le jeux de données vien du paquetage "CASdatasets"
-# data("pg15training")
+ data("pg15training")
 #
 # # Tranformation
-# data <- pg15training
-# data <- data[-(1:21), ]
-# # Variable Power
-# data$Power <- data$Group1
-# data$Group1 <- NULL
-# # Variable Région
-# data$Region <- data$Group2
-# data$Group2 <- NULL
-# data <- data %>% mutate(
-#     Region = case_when(
-#         Region %in% c("O", "P", "L") ~ "0PL",
-#         Region %in% c("S", "T") ~ "ST",
-#         Region %in% c("N", "Q") ~ "NQ",
-#         TRUE ~ Region
-#     )
-# )
+data <- pg15training
+data <- data[-(1:21), ]
+# Variable Power
+data$Power <- data$Group1
+data$Group1 <- NULL
+# Variable Région
+data$Region <- data$Group2
+data$Group2 <- NULL
+data <- data %>% mutate(
+    Region = case_when(
+        Region %in% c("O", "P", "L") ~ "0PL",
+        Region %in% c("S", "T") ~ "ST",
+        Region %in% c("N", "Q") ~ "NQ",
+        TRUE ~ Region
+    )
+)
 # # Nouvelle variable
-# data$Is_18 <- as.factor(as.numeric(data$Age == 18))
-# # Mettre certaines variables en factor
-# data$CalYear <- as.factor(data$CalYear)
-# data$Adind <- as.factor(data$Adind)
-# # Variable d'exposition
-# data$Expp <- data$Exppdays / 365
-# data$Exppdays <- NULL
-#
-# # Création des jeux train et test
-# set.seed(42069)
-# idx_train <- sample(100000L, 0.85*100000L, replace = FALSE)
-# keep_colnames <- c(
-#     "Gender", "Type", "Category", "Occupation", "Age",
-#     "Bonus", "Poldur", "Value", "Adind", "Density",
-#     "Numtppd", "Power", "Region", "Is_18", "Expp"
-# )
-# train <- data[idx_train, keep_colnames]
-# test <- data[-idx_train, keep_colnames]
-# write.csv(train, "train.csv")
-# write.csv(test, "test.csv")
+data$Is_18 <- as.factor(as.numeric(data$Age == 18))
+# Mettre certaines variables en factor
+data$CalYear <- as.factor(data$CalYear)
+data$Adind <- as.factor(data$Adind)
+# Variable d'exposition
+data$Expp <- data$Exppdays / 365
+data$Exppdays <- NULL
+
+# Création des jeux train et test
+set.seed(42069)
+idx_train <- sample(100000L, 0.85*100000L, replace = FALSE)
+keep_colnames <- c(
+    "Gender", "Type", "Category", "Occupation", "Age",
+    "Bonus", "Poldur", "Value", "Adind", "Density",
+    "Numtppd", "Power", "Region", "Is_18", "Expp"
+)
+train <- data[idx_train, keep_colnames]
+test <- data[-idx_train, keep_colnames]
+write.csv(train, "train.csv")
+write.csv(test, "test.csv")
+
 
 ##
 ##   3. Importation de test et train
@@ -154,6 +155,48 @@ pchisq(res, df=glm_pois$df.residual)
 ##
 ## GLM (avec une régularisation)
 ##
+
+## POUR LASSO
+# modèle 
+mod.complet <- glm(Numtppd ~.-Expp+offset(Expp), family = poisson, data = train)
+summary(mod.complet)
+
+x.train <- model.matrix(mod.complet, data = train)[, -1]
+y.train <- train$Numtppd
+
+# lambda
+grid.lambda <- 10^seq(3, -2, length = 100)
+
+library(glmnet)
+mod.lasso <- glmnet(x.train, y.train, family = "poisson", alpha = 1, lambda = grid.lambda)
+
+set.seed(111)
+cv.out <- cv.glmnet(x.train, y.train, alpha = 1, nfolds = 3)
+plot(cv.out)
+(meilleur.lam.lasso <- cv.out$lambda.min)
+
+predict(mod.lasso, type = "coefficients", s = meilleur.lam.lasso)
+
+x.test <- model.matrix(mod.complet, data = test)[, -1]
+  
+pred_lasso <- predict(mod.lasso, newx = x.test, s = meilleur.lam.lasso, type = "response")
+# MSE
+(mse_lasso <- mean((pred_lasso - test$Numtppd)^2))
+
+# POUR RIDGE
+mod.ridge <- glmnet(x.train, y.train, family = "poisson", alpha = 0, lambda = grid.lambda)
+
+set.seed(111)
+cv.out2 <- cv.glmnet(x.train, y.train, alpha = 0, nfolds = 3)
+plot(cv.out2)
+(meilleur.lam.ridge <- cv.out2$lambda.min)
+
+predict(mod.ridge, type = "coefficients", s = meilleur.lam.ridge)
+
+pred_ridge <- predict(mod.ridge, newx = x.test, s = meilleur.lam.ridge, type = "response")
+# MSE
+(mse_ridge <- mean((pred_ridge - test$Numtppd)^2))
+
 
 ##
 ## K plus proches voisins
