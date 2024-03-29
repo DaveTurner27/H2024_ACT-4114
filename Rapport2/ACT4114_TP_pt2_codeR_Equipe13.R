@@ -21,7 +21,8 @@
 
 # Paquetages requis
 liste.paquetage <- c(
-    "ggplot2", "dplyr", "CASdatasets", "MASS", "pscl", "VGAM", "flexsurv", "randomForest"
+    "ggplot2", "dplyr", "CASdatasets", "MASS", "pscl", "VGAM",
+    "flexsurv", "randomForest", "rpart"
 )
 
 # On installe les paquetages de la liste qu'on a pas déjà
@@ -65,6 +66,7 @@ lapply(liste.paquetage, require, character.only = TRUE)
 # data$Exppdays <- NULL
 #
 # # Création des jeux train et test
+# set.seed(42069)
 # idx_train <- sample(100000L, 0.85*100000L, replace = FALSE)
 # keep_colnames <- c(
 #     "Gender", "Type", "Category", "Occupation", "Age",
@@ -161,6 +163,17 @@ pchisq(res, df=glm_pois$df.residual)
 ##
 ## Arbre de décision
 ##
+tree.control <- rpart.control(cp = 0, minsplit = 1, minbucket = 30, xval = 5)
+arbre1 <- rpart(cbind(Expp, Numtppd)~.,
+                method = "poisson",
+                data = train,
+                control = tree.control)
+plotcp(arbre1)
+cp.choix1 <- arbre1$cptable[which.min(arbre1$cptable[,4]),1]
+arbre1 <- prune(arbre1, cp = cp.choix)
+prev_arbre1 <- predict(arbre1, newdata=test)
+# MSE
+mean((test$Numtppd - prev_arbre1)^2)
 
 ##
 ## Bagging
