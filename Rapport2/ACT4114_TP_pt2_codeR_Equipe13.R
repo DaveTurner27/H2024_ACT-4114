@@ -21,7 +21,7 @@
 
 # Paquetages requis
 liste.paquetage <- c(
-    "ggplot2", "dplyr", "CASdatasets", "MASS", "pscl", "VGAM", "flexsurv", "randomForest"
+    "ggplot2", "dplyr", "CASdatasets", "MASS", "pscl", "VGAM", "flexsurv", "caret", "randomForest", "FNN"
 )
 
 # On installe les paquetages de la liste qu'on a pas déjà
@@ -36,45 +36,46 @@ lapply(liste.paquetage, require, character.only = TRUE)
 
 ## Charger les données en R
 # Le jeux de données vien du paquetage "CASdatasets"
-# data("pg15training")
+data("pg15training")
 #
 # # Tranformation
-# data <- pg15training
-# data <- data[-(1:21), ]
-# # Variable Power
-# data$Power <- data$Group1
-# data$Group1 <- NULL
-# # Variable Région
-# data$Region <- data$Group2
-# data$Group2 <- NULL
-# data <- data %>% mutate(
-#     Region = case_when(
-#         Region %in% c("O", "P", "L") ~ "0PL",
-#         Region %in% c("S", "T") ~ "ST",
-#         Region %in% c("N", "Q") ~ "NQ",
-#         TRUE ~ Region
-#     )
-# )
-# # Nouvelle variable
-# data$Is_18 <- as.factor(as.numeric(data$Age == 18))
-# # Mettre certaines variables en factor
-# data$CalYear <- as.factor(data$CalYear)
-# data$Adind <- as.factor(data$Adind)
-# # Variable d'exposition
-# data$Expp <- data$Exppdays / 365
-# data$Exppdays <- NULL
-#
-# # Création des jeux train et test
-# idx_train <- sample(100000L, 0.85*100000L, replace = FALSE)
-# keep_colnames <- c(
-#     "Gender", "Type", "Category", "Occupation", "Age",
-#     "Bonus", "Poldur", "Value", "Adind", "Density",
-#     "Numtppd", "Power", "Region", "Is_18", "Expp"
-# )
-# train <- data[idx_train, keep_colnames]
-# test <- data[-idx_train, keep_colnames]
-# write.csv(train, "train.csv")
-# write.csv(test, "test.csv")
+data <- pg15training
+data <- data[-(1:21), ]
+# Variable Power
+data$Power <- data$Group1
+data$Group1 <- NULL
+# Variable Région
+data$Region <- data$Group2
+data$Group2 <- NULL
+data <- data %>% mutate(
+    Region = case_when(
+        Region %in% c("O", "P", "L") ~ "0PL",
+        Region %in% c("S", "T") ~ "ST",
+        Region %in% c("N", "Q") ~ "NQ",
+        TRUE ~ Region
+    )
+)
+# Nouvelle variable
+data$Is_18 <- as.factor(as.numeric(data$Age == 18))
+# Mettre certaines variables en factor
+data$CalYear <- as.factor(data$CalYear)
+data$Adind <- as.factor(data$Adind)
+# Variable d'exposition
+data$Expp <- data$Exppdays / 365
+data$Exppdays <- NULL
+
+# Création des jeux train et test
+set.seed(42069)
+idx_train <- sample(100000L, 0.85*100000L, replace = FALSE)
+keep_colnames <- c(
+    "Gender", "Type", "Category", "Occupation", "Age",
+    "Bonus", "Poldur", "Value", "Adind", "Density",
+    "Numtppd", "Power", "Region", "Is_18", "Expp"
+)
+train <- data[idx_train, keep_colnames]
+test <- data[-idx_train, keep_colnames]
+write.csv(train, "train.csv")
+write.csv(test, "test.csv")
 
 ##
 ##   3. Importation de test et train
@@ -156,6 +157,20 @@ pchisq(res, df=glm_pois$df.residual)
 ##
 ## K plus proches voisins
 ##
+
+trControl <- trainControl(method  = "cv", # validation croisée
+                          number  = 2)
+
+fit <- caret::train(Numtppd ~ Age+Bonus+Poldur+Value+Adind+Density+Power+Is_18+offset(Expp),
+                    method     = "knn",
+                    preProcess = "scale",
+                    tuneGrid   = expand.grid(k = c(20,40)),
+                    trControl  = trControl,
+                    metric     = "RMSE", 
+                    data       = train)
+
+fit   
+
 
 
 ##
