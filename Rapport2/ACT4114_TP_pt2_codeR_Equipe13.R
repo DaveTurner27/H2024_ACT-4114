@@ -21,7 +21,8 @@
 
 # Paquetages requis
 liste.paquetage <- c(
-    "ggplot2", "dplyr", "CASdatasets", "MASS", "pscl", "VGAM", "flexsurv", "randomForest"
+    "ggplot2", "dplyr", "CASdatasets", "MASS", "pscl", "VGAM",
+    "flexsurv", "randomForest", "rpart"
 )
 
 # On installe les paquetages de la liste qu'on a pas déjà
@@ -76,6 +77,7 @@ train <- data[idx_train, keep_colnames]
 test <- data[-idx_train, keep_colnames]
 write.csv(train, "train.csv")
 write.csv(test, "test.csv")
+
 
 ##
 ##   3. Importation de test et train
@@ -204,6 +206,17 @@ pred_ridge <- predict(mod.ridge, newx = x.test, s = meilleur.lam.ridge, type = "
 ##
 ## Arbre de décision
 ##
+tree.control <- rpart.control(cp = 0, minsplit = 1, minbucket = 30, xval = 5)
+arbre1 <- rpart(cbind(Expp, Numtppd)~.,
+                method = "poisson",
+                data = train,
+                control = tree.control)
+plotcp(arbre1)
+cp.choix1 <- arbre1$cptable[which.min(arbre1$cptable[,4]),1]
+arbre1 <- prune(arbre1, cp = cp.choix)
+prev_arbre1 <- predict(arbre1, newdata=test)
+# MSE
+mean((test$Numtppd - prev_arbre1)^2)
 
 ##
 ## Bagging
