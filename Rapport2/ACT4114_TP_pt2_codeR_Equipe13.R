@@ -21,7 +21,7 @@
 
 # Paquetages requis
 liste.paquetage <- c(
-    "ggplot2", "dplyr", "CASdatasets", "MASS", "pscl", "VGAM", "flexsurv", "caret", "randomForest", "FNN"
+    "ggplot2", "dplyr", "CASdatasets", "MASS", "pscl", "VGAM", "flexsurv", "caret", "randomForest", "FNN", "flexsurv", "randomForest", "rpart"
 )
 
 # On installe les paquetages de la liste qu'on a pas déjà
@@ -37,6 +37,7 @@ lapply(liste.paquetage, require, character.only = TRUE)
 ## Charger les données en R
 # Le jeux de données vien du paquetage "CASdatasets"
 data("pg15training")
+
 #
 # # Tranformation
 data <- pg15training
@@ -55,7 +56,8 @@ data <- data %>% mutate(
         TRUE ~ Region
     )
 )
-# Nouvelle variable
+# # Nouvelle variable
+
 data$Is_18 <- as.factor(as.numeric(data$Age == 18))
 # Mettre certaines variables en factor
 data$CalYear <- as.factor(data$CalYear)
@@ -154,6 +156,48 @@ pchisq(res, df=glm_pois$df.residual)
 ## GLM (avec une régularisation)
 ##
 
+## POUR LASSO
+# modèle 
+mod.complet <- glm(Numtppd ~.-Expp+offset(Expp), family = poisson, data = train)
+summary(mod.complet)
+
+x.train <- model.matrix(mod.complet, data = train)[, -1]
+y.train <- train$Numtppd
+
+# lambda
+grid.lambda <- 10^seq(3, -2, length = 100)
+
+library(glmnet)
+mod.lasso <- glmnet(x.train, y.train, family = "poisson", alpha = 1, lambda = grid.lambda)
+
+set.seed(111)
+cv.out <- cv.glmnet(x.train, y.train, alpha = 1, nfolds = 3)
+plot(cv.out)
+(meilleur.lam.lasso <- cv.out$lambda.min)
+
+predict(mod.lasso, type = "coefficients", s = meilleur.lam.lasso)
+
+x.test <- model.matrix(mod.complet, data = test)[, -1]
+  
+pred_lasso <- predict(mod.lasso, newx = x.test, s = meilleur.lam.lasso, type = "response")
+# MSE
+(mse_lasso <- mean((pred_lasso - test$Numtppd)^2))
+
+# POUR RIDGE
+mod.ridge <- glmnet(x.train, y.train, family = "poisson", alpha = 0, lambda = grid.lambda)
+
+set.seed(111)
+cv.out2 <- cv.glmnet(x.train, y.train, alpha = 0, nfolds = 3)
+plot(cv.out2)
+(meilleur.lam.ridge <- cv.out2$lambda.min)
+
+predict(mod.ridge, type = "coefficients", s = meilleur.lam.ridge)
+
+pred_ridge <- predict(mod.ridge, newx = x.test, s = meilleur.lam.ridge, type = "response")
+# MSE
+(mse_ridge <- mean((pred_ridge - test$Numtppd)^2))
+
+
 ##
 ## K plus proches voisins
 ##
@@ -176,6 +220,17 @@ fit
 ##
 ## Arbre de décision
 ##
+tree.control <- rpart.control(cp = 0, minsplit = 1, minbucket = 30, xval = 5)
+arbre1 <- rpart(cbind(Expp, Numtppd)~.,
+                method = "poisson",
+                data = train,
+                control = tree.control)
+plotcp(arbre1)
+cp.choix1 <- arbre1$cptable[which.min(arbre1$cptable[,4]),1]
+arbre1 <- prune(arbre1, cp = cp.choix)
+prev_arbre1 <- predict(arbre1, newdata=test)
+# MSE
+mean((test$Numtppd - prev_arbre1)^2)
 
 ##
 ## Bagging
