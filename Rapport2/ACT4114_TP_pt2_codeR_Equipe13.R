@@ -1,0 +1,187 @@
+###
+### Modélisation (rapport 2) - Équipe 13
+### ACT-4114, Hiver 2024
+###
+
+#
+#   Ce fichier contient le code pour ajuster les différents modèles et en faire
+#   l'analyse. On sépare le fichier en plusieurs sections énumérées ci-dessous.
+#
+#   1. Importation des paquetages
+#   2. Transformation des données et création des jeux train et test
+#   3. Importation de test et train
+#
+#   4. Ajustement de modèles
+#   5. Comparaison des modèles
+#   6. Interprétation des meilleurs modèles
+
+##
+## 1. Importation des paquetages
+##
+
+# Paquetages requis
+liste.paquetage <- c(
+    "ggplot2", "dplyr", "CASdatasets", "MASS", "pscl", "VGAM", "flexsurv", "randomForest"
+)
+
+# On installe les paquetages de la liste qu'on a pas déjà
+inst <- liste.paquetage %in% installed.packages()
+if(length(liste.paquetage[!inst]) > 0) install.packages(liste.paquetage[!inst])
+lapply(liste.paquetage, require, character.only = TRUE)
+
+##
+## 2. Transformation des données et création des jeux train et test
+##    (décommenter seulement si il faut créer train et test)
+##
+
+## Charger les données en R
+# Le jeux de données vien du paquetage "CASdatasets"
+# data("pg15training")
+#
+# # Tranformation
+# data <- pg15training
+# data <- data[-(1:21), ]
+# # Variable Power
+# data$Power <- data$Group1
+# data$Group1 <- NULL
+# # Variable Région
+# data$Region <- data$Group2
+# data$Group2 <- NULL
+# data <- data %>% mutate(
+#     Region = case_when(
+#         Region %in% c("O", "P", "L") ~ "0PL",
+#         Region %in% c("S", "T") ~ "ST",
+#         Region %in% c("N", "Q") ~ "NQ",
+#         TRUE ~ Region
+#     )
+# )
+# # Nouvelle variable
+# data$Is_18 <- as.factor(as.numeric(data$Age == 18))
+# # Mettre certaines variables en factor
+# data$CalYear <- as.factor(data$CalYear)
+# data$Adind <- as.factor(data$Adind)
+# # Variable d'exposition
+# data$Expp <- data$Exppdays / 365
+# data$Exppdays <- NULL
+#
+# # Création des jeux train et test
+# idx_train <- sample(100000L, 0.85*100000L, replace = FALSE)
+# keep_colnames <- c(
+#     "Gender", "Type", "Category", "Occupation", "Age",
+#     "Bonus", "Poldur", "Value", "Adind", "Density",
+#     "Numtppd", "Power", "Region", "Is_18", "Expp"
+# )
+# train <- data[idx_train, keep_colnames]
+# test <- data[-idx_train, keep_colnames]
+# write.csv(train, "train.csv")
+# write.csv(test, "test.csv")
+
+##
+##   3. Importation de test et train
+##
+
+train <- read.csv("train.csv")[, -1]
+test <- read.csv("test.csv")[, -1]
+
+#####
+#####
+##### 4. Ajustement de modèles
+#####
+#####
+
+##
+## GLM
+##
+formula_base <- formula(
+    Numtppd ~ Gender + Type + Category + Occupation +
+        poly(Age, 6) + Bonus + Is_18 + Poldur +
+        Value + Adind + Density + Region + log(Power) + offset(Expp)
+)
+formula_base_bin <- formula(
+    cbind(Numtppd, Expp*365) ~ Gender + Type + Category + Occupation +
+        poly(Age, 6) + Bonus + Is_18 + Poldur +
+        Value + Adind + Density*Region + log(Power)
+)
+
+# Loi de poisson
+glm_pois <- glm(
+    formula = formula_base,
+    family = poisson(link = "log"),
+    data = train
+)
+summary(glm_pois)
+
+# Loi Binomiale Négative
+glm_negbin <- glm.nb(
+    formula = formula_base,
+    link = "log",
+    data = train
+)
+summary(glm_negbin)
+
+# Loi binomiale
+glm_bin <- glm(
+    formula = formula_base_bin,
+    family = binomial(link = "log"),
+    data = train
+)
+summary(glm_bin)
+
+# Loi de Poisson gonflée en zéro (converge difficilement)
+glm_pois_gonf <- pscl::zeroinfl(
+    formula = formula_base,
+    dist = "poisson",
+    data = train
+)
+summary(glm_pois_gonf)
+AIC(glm_pois_gonf)
+
+# Continuons avec le modèle Poisson
+drop1(object = glm_pois, test = "Chisq")
+glm_pois <- update(glm_pois, ~.-Value)
+drop1(object = glm_pois, test = "Chisq")
+glm_pois <- update(glm_pois, ~.-Category)
+drop1(object = glm_pois, test = "Chisq")
+glm_pois <- update(glm_pois, ~.-Adind)
+drop1(object = glm_pois, test = "Chisq")
+summary(glm_pois)
+(res <- sum(residuals.glm(glm_pois, type = "pearson")^2))
+pchisq(res, df=glm_pois$df.residual)
+# Le fit n'est pas incroyable
+
+##
+## GLM (avec une régularisation)
+##
+
+##
+## K plus proches voisins
+##
+
+
+##
+## Arbre de décision
+##
+
+##
+## Bagging
+##
+
+##
+## Forêt aléatoire
+##
+
+##
+## Gradient Boosting
+##
+
+#####
+#####
+##### 5. Comparaison des modèles
+#####
+#####
+
+#####
+#####
+##### 6. Interprétation des meilleurs modèles
+#####
+#####
