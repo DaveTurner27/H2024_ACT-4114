@@ -16,14 +16,14 @@ output:
 \justify  
 \clearpage
 ```
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, message = FALSE, warning = FALSE)
 ```
 
-```{r paquetages, message=FALSE, eval=TRUE, include=FALSE, echo = FALSE}
+```{r paquetages, message=FALSE, warning=FALSE, eval=TRUE, include=FALSE, echo = FALSE}
 ### Liste des paquetages
 liste.paquetage <- c("ggplot2", "FactoMineR", "pls", "mice", "car", "MASS",
-                     "glmnet", "caret", "FNN", "dplyr")
+                     "glmnet", "caret", "FNN", "dplyr", "rpart", "rpart.plot")
 
 ### On installe les paquetages de la liste qu'on a pas déjà
 inst <- liste.paquetage %in% installed.packages()
@@ -33,23 +33,30 @@ l <- lapply(liste.paquetage, require, character.only = TRUE)
 ```
 
 ```{r import}
-train <- read.csv("train.csv")[, -1]
+train.dat <- read.csv("train.csv")[, -1]
 test <- read.csv("test.csv")[, -1]
+
+# Déviance poisson
+dev.pois <- function(preds, clnb){
+  2*sum(clnb*log((clnb+ 1E-10)/preds)-(clnb-preds))
+}
 ```
 
 # Introduction
 
-On modélise la fréquence des réclamations pour la responsabilité civile (dommages matériels) en assurance automobile. Nos données représentent un portefeuille d'assurés français. Dans le tableau de données original on retrouve :
+La tarification en assurance de dommage est un processus complexe et intéressant. Il est souvent nécessaire et plus efficace de séparer le processus de modélisation du risque en deux parties. La première partie est la fréquence des sinistres. Cette partie de la modélisation est cruciale, puisque c'est elle qui nous permet de prévoir le nombre de réclamations qu'aura une personne assurée durant la durée de sa police. Il est donc essentiel de savoir comment modéliser efficacement et le plus précisément possible la fréquence en assurance de dommage.
 
--   la variable réponse $N$ est nommée `Numtppd`;
+Dans ce rapport, on modélise la fréquence des réclamations pour la responsabilité civile (dommages matériels) en assurance automobile. Nos données représentent un portefeuille d'assurés français. Dans le tableau de données original on retrouve :
 
--   la variable d'exposition $365 t$ (nombre de jours) sous le nom `Exppdays`. Elle est renommée `Expp` après modification pour représenter le ratio `Exppdays` / 365 jours.
+-   la variable réponse $N$, qui est nommée `Numtppd`;
 
-Plusieurs modèles seront étudiés :
+-   la variable d'exposition $365 t$ (nombre de jours de couverture) sous le nom `Exppdays`. Elle est renommée `Expp` après modification pour représenter la proportion d'année couverte : $t =$ `Exppdays` / 365 jours.
 
--   GLM (modèle de référence);
+Plusieurs modèles seront étudiés pour modéliser la variable réponse :
 
--   GLM avec régularisation;
+-   *GLM* (modèle de référence);
+
+-   *GLM* avec régularisation;
 
 -   Modèle des k plus proches voisins;
 
@@ -63,80 +70,225 @@ Plusieurs modèles seront étudiés :
 
 En ce qui concerne le jeu de données, il est disponible directement en `R` dans le paquetage `CASdatasets`. Plus précisément, il s'agit du jeu de données `pg15training`. Les données ont été utilisées par l'Institut française des actuaires dans un concours/jeu de tarification. Elles proviennent d'assureurs automobiles privés inconnus. La matrice contient 2 ans d'observations (2009 et 2010) avec 50 000 observations dans chacune de ces deux années.
 
-Pour plus d'information sur les données, il est possible d'aller voir la documentation sur CRAN ou bien simplement de faire la commande suivante en `R` : `help(pg15training)`.
+Pour plus d'information sur les données, il est possible d'aller voir la documentation sur CRAN ou bien simplement de faire la commande suivante en `R` : `help(pg15train.dating)`.
+
+À noter que des modifications ont été faites sur le jeu de données, celles-cis sont documentées dans le premier rapport (Analyse préparatoire).
+
+Dans ce rapport on présentera d'abord un modèle de base (GLM). Ensuite, on parlera des autres modèles étudiés en détaillant la procédure utilisée pour les ajuster. Par la suite, tous les modèles étudiées seront comparer. On interprétera ensuite les deux modèles les plus prometteurs. Enfin, on proposera un choix de modèle finale. Les lecteurs intéressés par la recommandation finale peuvent passer directement à la section conclusion.
 
 # Modèle de base
 
-Après avoir séparé les données en deux ensembles : `train` (85 % des données) et `test` (15 % des données), on est prêt à construire le modèle de base. On fait face à un problème de régression et la variable réponse est discrète. La loi de Poisson, la loi Binomiale Négative et la de Poisson gonflée à zéro sont toutes de bonnes possibilités pour construire un modèle linéaire généralisé sur des données de comptages.
+```{r base_mod}
+formula_base <- formula(
+    Numtppd ~ Gender + Type + Occupation +
+        poly(Age, 7) + Bonus + Is_18 + Poldur + Density + Region + log(Power) + offset(Expp)
+)
+mod.base <- glm(
+    formula = formula_base,
+    family = poisson(link = "log"),
+    data = train.dat
+)
+prev_test.base <- predict(mod.base, newdata=test, type="response")
+deviance.base <- dev.pois(prev_test.base, test$Numtppd)
+```
 
-Après avoir essayé ces options, le modèle choisi est le modèle de Poisson. On fait ce choix, car ce modèle est plus simple et la statistique d'AIC est similaire pour les trois options. Le modèle choisi est donc un GLM Poisson avec fonction de lien logarithmique. Pour la sélection des variables, on fait une analyse de déviance au seuil de confiance 99 % en utilisant le méthode *Backward*.
+Après avoir séparé les données en deux échantillons : `train` (85 % des données) et `test` (15 % des données), on est prêt à construire le modèle de base. On fait face à un problème de régression et la variable réponse est discrète. La loi de Poisson, la loi Binomiale Négative et la de Poisson gonflée à zéro sont toutes de bonnes possibilités pour construire un modèle linéaire généralisé sur des données de comptages.
+
+En revanche, le modèle choisi est le modèle de Poisson. On fait ce choix, car ce modèle est le plus simple ce qui est idéale pour un modèle de base. Le modèle est donc un GLM Poisson avec fonction de lien logarithmique.
+
+Avec notre rapport 1 on a vu qu'il pourrait être intéressant d'utilises la variable âge jusqu'au degré 7 (âge, âge$^2, \dots$, âge$^7$). En fait, cette technique semble effectivement efficace, puisqu'après la sélection de variable, on conserve les 7 variables. Pour la sélection des variables, on a fait une analyse de déviance au seuil de confiance 99 % en utilisant la méthode algorithmique *Backward*. C'est donc un modèle simple, mais celui-ci demeure un référence fiable pour la suite.
 
 # Ajustement des modèles
 
-## Régressions régularisées
+## Régression régularisée Lasso
 
-```{r regularisé}
-mod.complet <- glm(Numtppd ~.-Expp+offset(Expp), family = poisson, data = train)
-# summary(mod.complet)
-x.train <- model.matrix(mod.complet, data = train)[, -1]
-y.train <- train$Numtppd
+```{r regularisée, message=FALSE, warning=FALSE}
+# Mod sans reg
+mod.complet <- glm(Numtppd ~.-Age+poly(Age, 7)-Expp-Power+I(log(Power))+offset(Expp), family = poisson, data = train.dat)
+
+# Data
+x.train <- model.matrix(mod.complet, data = train.dat)[, -1]
+y.train <- train.dat$Numtppd
+x.test <- model.matrix(mod.complet, data = test)[, -1]
 
 # lambda
-grid.lambda <- 10^seq(3, -2, length = 100)
-mod.lasso <- glmnet(x.train, y.train, family = "poisson", alpha = 1, lambda = grid.lambda)
 set.seed(111)
-cv.out <- cv.glmnet(x.train, y.train, alpha = 1, nfolds = 3)
-# plot(cv.out)
+cv.out <- cv.glmnet(x.train, y.train, alpha = 1, nfolds = 10, family = "poisson")
 meilleur.lam.lasso <- cv.out$lambda.min
-# predict(mod.lasso, type = "coefficients", s = meilleur.lam.lasso)
-x.test <- model.matrix(mod.complet, data = test)[, -1]
-pred_lasso <- predict(mod.lasso, newx = x.test, s = meilleur.lam.lasso, type = "response")
-# MSE
-mse_lasso <- mean((pred_lasso - test$Numtppd)^2)
+mod.lasso <- glmnet(x.train, y.train, family = "poisson", alpha = 1, lambda = meilleur.lam.lasso)
 
-# POUR RIDGE
-mod.ridge <- glmnet(x.train, y.train, family = "poisson", alpha = 0, lambda = grid.lambda)
-set.seed(111)
-cv.out2 <- cv.glmnet(x.train, y.train, alpha = 0, nfolds = 3)
-# plot(cv.out2)
-meilleur.lam.ridge <- cv.out2$lambda.min
-# predict(mod.ridge, type = "coefficients", s = meilleur.lam.ridge)
-pred_ridge <- predict(mod.ridge, newx = x.test, s = meilleur.lam.ridge, type = "response")
-# MSE
-mse_ridge <- mean((pred_ridge - test$Numtppd)^2)
+# Prév
+prev_test.lasso <- predict(mod.lasso, newx = x.test, type = "response")
+deviance.lasso <- dev.pois(prev_test.lasso, test$Numtppd)
 ```
 
-Ici on construit des GLM régularisées. On construit un modèle de régression *Ridge* et *Lasso*.
+Ici, on construit un modèle de régression régularisée *Lasso*. La distribution utilisée est encore une loi de Poisson. Le lien utilisé est le lien log. On rappelle qu'on utilise encore une régression polynomiale de degré 7 sur l'âge.
 
-### Lasso
+L'avantage de la régression régularisée *Lasso* est que la sélection des variables explicatives est fait pour nous. La fonction *Score* de la régression est :
 
-La distribution utilisée est encore une loi de Poisson avec fonction de lien logarithmique. L'avantage ici est que ce type de régression fait la sélection des variables explicatives. La fonction *Score* de la régression est :
+$$ S^{Lasso}(\beta) = -l(\beta)/n + \lambda  \sum_{j = 1}^p | \beta_j|. $$
 
-$$ S^{Lasso}(\beta) = -\mathcal{l}(\beta)/n + \lambda  \sum_{j = 1}^p | \beta_j|. $$
+Le vecteur $\beta$ est le vecteur de paramètres qui sera estimé par maximum de vraisemblance. La fonction $l(\beta)$ est la fonction de log-vraisemblance. La variable $n$ est le nombre d'observations dans l'échantillon d’entraînement et la variable $p$ est le nombre de variables explicatives.
 
-Le vecteur $\beta$ est un vecteur de paramètres qui sera estimé par maximum de vraisemblance. Pour ce qui est de l'hyperparamètre $\lambda$ est choisi par validation croisée avec 3 plis. Cet hyperparamètre est choisi pour minimiser l'erreur quadratique moyenne de la validation croisée. Sa valeur est de `r meilleur.lam.lasso`
+Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi par validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la déviance de Poisson moyenne de la validation croisée. Sa valeur est de `r meilleur.lam.lasso`. La figure ci-dessous montre comment cette valeur est sélectionnée.
 
-### Ridge
-
-La procédure est identique à la régression *Ridge*, mais la fonction *Score* de la régression est :
-
-$$
-S^{Ridge}(\beta) = -\mathcal{l}(\beta)/n  + \lambda \sum_{j = 1}^p \beta_j^2.
-$$
-
-L'hyperparamètre $\lambda$ optimal est `r 2 * meilleur.lam.ridge`
-
-### Résumé
-
-Étant donné que la performance de l'erreur quadratique moyenne sur l'ensemble de test est très similaire entre ces deux modèles. On décide de poursuive l'analyse avec la régression de *Lasso* puisqu'elle fait la sélection de variable et que ce modèle est plus simple.
+```{r lam_lasso}
+plot(cv.out)
+```
 
 ## k plus proches voisins
 
 ## Arbre de décision
 
+```{r arbre, message=FALSE, warning=FALSE}
+set.seed(2019)
+tree.control <- rpart.control(
+    cp = 0,
+    minbucket = 200L,
+    xval = 10L)
+
+arbre <- rpart(
+    cbind(Expp, Numtppd)~.,
+    method = "poisson",
+    data = train.dat,
+    control = tree.control, parms = list(shrink=1))
+
+# Meilleur cp
+err.min <- arbre$cptable[which.min(arbre$cptable[,4]),]
+err.max <- err.min[4] + err.min[5]
+cp.pois <- max(arbre$cptable[arbre$cptable[,4] <= err.max,1])
+# cp.pois <- arbre$cptable[which.min(arbre$cptable[,4]), 1]
+
+mod.arbre <- prune(arbre, cp = cp.pois)
+prev_test.arbre <- predict(mod.arbre, newdata=test)
+deviance.arbre <- dev.pois(prev_test.arbre, test$Numtppd)
+```
+
+On construit maintenant un arbre de régression Poisson. On choisi la déviance de la loi Poisson comme fonction de perte. Ce choix est assez intuitif étant donné que nous sommes en présence de données de comptage.
+
+Avant de faire un arbre il faut choisir le coefficient de variation de la distribution à priori $(\gamma)$. On décide de garder la valeur par défaut de 1 que `R` nous suggère pour cet hyperparamètre, puisque de toute façon ce dernier ne devrait pas influencer la performance du modèle de manière significative.
+
+On procède ensuite par validation croisée à 10 plis pour trouver la valeur idéale du cp. On chosit le cp qui donne la plus petite déviance moyenne de la validation croisée. La valeur idéale trouvée est de `r cp.pois`. Avec cette valeur on peut obtenir l'arbre final.
+
+```{r}
+plotcp(arbre)
+```
+
 ## Bagging
 
-## Forest aléatoire
+```{r Bagging, cache=TRUE}
+
+set.seed(154)
+minb <- seq(0, 150, 30)
+ntry <- 20
+p <- 0.35
+resultats.minb <- matrix(ncol = ntry, nrow = length(minb))
+
+for(try in 1:ntry){
+    
+    # Création du jeu de validation
+    idx_not0 <- which(train.dat$Numtppd > 0)
+    idx_0 <- which(train.dat$Numtppd == 0)
+    ind.val <- c(
+        sample(idx_0, round(p*length(idx_0))),
+        sample(idx_not0, round(p*length(idx_not0))))
+    
+    dat.valid <- train.dat[ind.val,]
+    dat.non.valid <- train.dat[-ind.val,]
+    
+    # Optimiser minbucket
+    prev.nodesize <- numeric(length(minb))
+    
+    idx <- 0
+    for(i in minb){
+        
+        idx <- idx + 1
+        
+        # Construire la foret
+        foret.node <- distRforest::rforest(
+            cbind(Expp, Numtppd)~.-Is_18,
+            method="poisson",
+            data=dat.non.valid,
+            control=rpart.control(
+                minbucket = i,
+                cp=0,
+                xval = 1
+            ),
+            ncand=12,
+            ntrees = 200,
+            subsample = 1)
+    
+        # Faire les prévisions et calcul de la déviance
+        preds <- distRforest::predict.rforest(foret.node, newdata=dat.valid)
+        foret.node.res <- dev.pois(preds = preds, clnb = dat.valid$Numtppd)
+    
+        # Ajout de la déviance à l'objet
+        prev.nodesize[idx] <- foret.node.res
+    }
+    resultats.minb[, try] <- prev.nodesize
+    # print("Hello World!")
+}
+resultats.minb.combined <- unlist(rowMeans(resultats.minb))
+```
+
+```{r}
+# Optimiser nombre d'arbres
+mod.bag <- distRforest::rforest(
+        cbind(Expp, Numtppd)~.-Is_18,
+        method="poisson",
+        data=dat.non.valid,
+        control=rpart.control(
+            minbucket = minb[which.min(resultats.minb.combined)],
+            cp=0,
+            xval = 1
+        ),
+        ncand=12,
+        ntrees = 350,
+        subsample = 1)
+
+arbres <- seq(10, 350, 20)
+idx <- 0
+prev.forestsize <- numeric(length(arbres))
+
+for(a in arbres){
+    idx <- idx + 1
+    mod <- mod.bag
+    mod$trees <- mod.bag$trees[1:a]
+    preds <- distRforest::predict.rforest(mod, newdata=dat.valid)
+    foret.node.res <- dev.pois(preds = preds, clnb = dat.valid$Numtppd)
+    prev.forestsize[idx] <- foret.node.res
+}
+```
+
+```{r fig}
+ggplot(mapping = aes(x=minb, y=resultats.minb.combined)) + geom_line() + geom_point() +
+    geom_point(aes(x=minb[which.min(resultats.minb.combined)]), y=min(resultats.minb.combined), size=4, col="red") + theme_bw() +
+    labs(title = "Optimisation de l'hyperparamètre 'minbucket'", x="minbucket", y="Déviance Poisson\nde l'échantillon de validation")
+```
+
+```{r}
+ggplot(mapping = aes(x=arbres, y=prev.forestsize)) + geom_line() + geom_point() + theme_bw() +
+    labs(title = "Optimisation du nombre d'arbres", x="Nombre d'arbres", y="Déviance de Poisson\nde l'échantillon de validation")
+```
+
+```{r bagging final}
+mod.bag <- distRforest::rforest(
+        cbind(Expp, Numtppd)~.-Is_18,
+        method="poisson",
+        data=dat.non.valid,
+        control=rpart.control(
+            minbucket = minb[which.min(prev.nodesize)],
+            cp=0,
+            xval = 0
+        ),
+        ncand=12,
+        ntrees = 300,
+        subsample = 1)
+prev_test.bag <- distRforest::predict.rforest(mod.bag, newdata = test)
+deviance.bag <- dev.pois(preds = prev_test.bag, clnb = test$Numtppd)
+```
+
+## Forêt aléatoire
 
 ## Gradient Boosting
 

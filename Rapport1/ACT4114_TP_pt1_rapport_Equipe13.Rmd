@@ -542,7 +542,7 @@ On retient de notre analyse exploratoire certains points clés :
 
 # Bibliographie
 
-Charpentier, Arthur (2015, juillet 20). Pricing Game (100% Actuaires). [Freakonometrics]. Récupéré de https://doi.org/10.58079/ov01
+Charpentier, Arthur (2015, juillet 20). Pricing Game (100% Actuaires). [Freakonometrics]. Récupéré de <https://doi.org/10.58079/ov01>
 
 \newpage
 
