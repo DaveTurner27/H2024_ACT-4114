@@ -23,7 +23,7 @@ knitr::opts_chunk$set(echo = FALSE, cache = TRUE, message = FALSE, warning = FAL
 ```{r paquetages, message=FALSE, warning=FALSE, eval=TRUE, include=FALSE, echo = FALSE}
 ### Liste des paquetages
 liste.paquetage <- c("ggplot2", "FactoMineR", "pls", "mice", "car", "MASS",
-                     "glmnet", "caret", "FNN", "dplyr", "rpart", "rpart.plot")
+                     "glmnet", "caret", "FNN", "dplyr", "rpart", "rpart.plot", "tidyverse")
 
 ### On installe les paquetages de la liste qu'on a pas déjà
 inst <- liste.paquetage %in% installed.packages()
@@ -102,7 +102,7 @@ Avec notre rapport 1 on a vu qu'il pourrait être intéressant d'utilises la var
 
 ## Régression régularisée Lasso
 
-```{r regularisée, message=FALSE, warning=FALSE}
+```{r Lasso, message=FALSE, warning=FALSE, cache=TRUE}
 # Mod sans reg
 mod.complet <- glm(Numtppd ~.-Age+poly(Age, 7)-Expp-Power+I(log(Power))+offset(Expp), family = poisson, data = train.dat)
 
@@ -132,11 +132,79 @@ Le vecteur $\beta$ est le vecteur de paramètres qui sera estimé par maximum de
 
 Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi par validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la déviance de Poisson moyenne de la validation croisée. Sa valeur est de `r meilleur.lam.lasso`. La figure ci-dessous montre comment cette valeur est sélectionnée.
 
-```{r lam_lasso}
+```{r fig_lam_lasso}
 plot(cv.out)
 ```
 
 ## k plus proches voisins
+
+```{r knn_optimise_k, include=FALSE}
+
+# iter <- 20
+k <- seq(75, 105, 5)
+# resultats.knn <- matrix(nrow = iter, ncol = length(k))
+# 
+# set.seed(55)
+# for(i in 1:iter){
+#     
+#     # Création du jeu de validation
+#     p <- 0.3
+#     idx_not0 <- which(train.dat$Numtppd > 0)
+#     idx_0 <- which(train.dat$Numtppd == 0)
+#     ind.val <- c(
+#         sample(idx_0, round(p*length(idx_0))),
+#         sample(idx_not0, round(p*length(idx_not0))))
+#     keep.cols <- c("Numtppd", "Expp", "Age",
+#                    "Bonus", "Poldur", "Value",
+#                    "Adind", "Density", "Power")
+#     dat.valid <- train.dat[ind.val, keep.cols]
+#     dat.non.valid <- train.dat[-ind.val, keep.cols]
+#     
+#     # initier la boucle
+#     idx <- 0
+#     
+#     for(k_neib in k){
+#         
+#         idx <- idx + 1
+#         
+#         # fit knn
+#         fit <- knn.reg(
+#             train = dat.non.valid[, -c(1, 2)],
+#             y = dat.non.valid$Numtppd / dat.non.valid$Expp,
+#             test = dat.valid[, -c(1, 2)],
+#             k = k_neib)
+#         
+#         # Prev
+#         prevs <- fit$pred * dat.valid$Expp + 1E-4
+#         resultats.knn[i, idx] <- dev.pois(preds = prevs, clnb = dat.valid$Numtppd)
+#     }
+# }
+```
+
+```{r RDS_knn}
+# saveRDS(resultats.knn, "knn")
+resultats.knn <- readRDS("knn")
+
+# Faire les prév test
+tain.knn <- train.dat[, keep.cols]
+test.knn <- test[, keep.cols]
+
+fit_knn_test <- knn.reg(
+    train = tain.knn[, -c(1, 2)],
+    y = tain.knn$Numtppd / tain.knn$Expp,
+    test = test.knn[, -c(1, 2)],
+    k = k[which.min(colMeans(resultats.knn))])
+
+prev_test.knn <- fit_knn_test$pred * test$Expp + 1E-4
+deviance.knn <- dev.pois(prev_test.knn, test.knn$Numtppd)
+```
+
+```{r fig_knn}
+ggplot(mapping = aes(x=k, y=colMeans(resultats.knn))) + geom_point() + 
+     geom_point(aes(x=k[which.min(colMeans(resultats.knn))]),
+               y=min(colMeans(resultats.knn)), size=4, col="orange", alpha=0.6)+
+    geom_line() + theme_bw() + labs()
+```
 
 ## Arbre de décision
 
@@ -166,133 +234,300 @@ deviance.arbre <- dev.pois(prev_test.arbre, test$Numtppd)
 
 On construit maintenant un arbre de régression Poisson. On choisi la déviance de la loi Poisson comme fonction de perte. Ce choix est assez intuitif étant donné que nous sommes en présence de données de comptage.
 
-Avant de faire un arbre il faut choisir le coefficient de variation de la distribution à priori $(\gamma)$. On décide de garder la valeur par défaut de 1 que `R` nous suggère pour cet hyperparamètre, puisque de toute façon ce dernier ne devrait pas influencer la performance du modèle de manière significative.
+Avant de faire un arbre il faut choisir le coefficient de variation de la distribution à priori $(\gamma)$. On décide de garder la valeur par défaut que `R` nous suggère pour cet hyperparamètre, puisque de toute façon ce dernier ne devrait pas influencer la performance du modèle de manière significative.
 
-On procède ensuite par validation croisée à 10 plis pour trouver la valeur idéale du cp. On chosit le cp qui donne la plus petite déviance moyenne de la validation croisée. La valeur idéale trouvée est de `r cp.pois`. Avec cette valeur on peut obtenir l'arbre final.
+On procède ensuite par validation croisée à 10 plis pour trouver la valeur idéale du cp. On chosit le cp qui donne la plus petite déviance moyenne de la validation croisée. En fait, on choisit la plus grande valeur qui est en dessous de la valeur minimale + 1 écart type. La valeur idéale trouvée est de `r cp.pois`. Avec cette valeur on peut obtenir l'arbre final.
 
-```{r}
-plotcp(arbre)
+```{r fig_cp_arbre}
+plotcp(arbre, upper = "none", col = "orange", lty = 1, pch=16, cex=0.5, ylim=c(0.8, 0.9),
+       main="Optimisation de l'hyperparamètre CP")
 ```
 
 ## Bagging
 
-```{r Bagging, cache=TRUE}
+```{r optimisation_minbucket_bag, include=FALSE}
 
-set.seed(154)
-minb <- seq(0, 150, 30)
-ntry <- 20
-p <- 0.35
-resultats.minb <- matrix(ncol = ntry, nrow = length(minb))
-
-for(try in 1:ntry){
-    
-    # Création du jeu de validation
-    idx_not0 <- which(train.dat$Numtppd > 0)
-    idx_0 <- which(train.dat$Numtppd == 0)
-    ind.val <- c(
-        sample(idx_0, round(p*length(idx_0))),
-        sample(idx_not0, round(p*length(idx_not0))))
-    
-    dat.valid <- train.dat[ind.val,]
-    dat.non.valid <- train.dat[-ind.val,]
-    
-    # Optimiser minbucket
-    prev.nodesize <- numeric(length(minb))
-    
-    idx <- 0
-    for(i in minb){
-        
-        idx <- idx + 1
-        
-        # Construire la foret
-        foret.node <- distRforest::rforest(
-            cbind(Expp, Numtppd)~.-Is_18,
-            method="poisson",
-            data=dat.non.valid,
-            control=rpart.control(
-                minbucket = i,
-                cp=0,
-                xval = 1
-            ),
-            ncand=12,
-            ntrees = 200,
-            subsample = 1)
-    
-        # Faire les prévisions et calcul de la déviance
-        preds <- distRforest::predict.rforest(foret.node, newdata=dat.valid)
-        foret.node.res <- dev.pois(preds = preds, clnb = dat.valid$Numtppd)
-    
-        # Ajout de la déviance à l'objet
-        prev.nodesize[idx] <- foret.node.res
-    }
-    resultats.minb[, try] <- prev.nodesize
-    # print("Hello World!")
-}
-resultats.minb.combined <- unlist(rowMeans(resultats.minb))
+# set.seed(154)
+minb <- seq(0, 225, 25)
+# 
+# # Optimiser minbucket
+# resultats.bag <- numeric(length(minb))
+# 
+# idx <- 0
+# for(i in minb){
+#     
+#     idx <- idx + 1
+#     
+#     # Construire la foret
+#     foret.node <- distRforest::rforest(
+#         cbind(Expp, Numtppd)~.-Is_18,
+#         method="poisson",
+#         data=train.dat,
+#         control=rpart.control(
+#             minbucket = i,
+#             cp=0,
+#             xval = 1
+#         ),
+#         ncand=12,
+#         ntrees = 200,
+#         subsample = 1,
+#         track_oob = TRUE)
+# 
+#     # Ajout de la deviance
+#     resultats.bag[idx] <- tail(foret.node$oob, 1)
+# }
 ```
 
-```{r}
-# Optimiser nombre d'arbres
-mod.bag <- distRforest::rforest(
-        cbind(Expp, Numtppd)~.-Is_18,
-        method="poisson",
-        data=dat.non.valid,
-        control=rpart.control(
-            minbucket = minb[which.min(resultats.minb.combined)],
-            cp=0,
-            xval = 1
-        ),
-        ncand=12,
-        ntrees = 350,
-        subsample = 1)
-
-arbres <- seq(10, 350, 20)
-idx <- 0
-prev.forestsize <- numeric(length(arbres))
-
-for(a in arbres){
-    idx <- idx + 1
-    mod <- mod.bag
-    mod$trees <- mod.bag$trees[1:a]
-    preds <- distRforest::predict.rforest(mod, newdata=dat.valid)
-    foret.node.res <- dev.pois(preds = preds, clnb = dat.valid$Numtppd)
-    prev.forestsize[idx] <- foret.node.res
-}
+```{r optimisation_tree_bag, include=FALSE}
+# # Optimiser nombre d'arbres
+# mod.bag <- distRforest::rforest(
+#         cbind(Expp, Numtppd)~.-Is_18,
+#         method="poisson",
+#         data=train.dat,
+#         control=rpart.control(
+#             minbucket = minb[which.min(resultats.bag)],
+#             cp=0,
+#             xval = 1
+#         ),
+#         ncand=12,
+#         ntrees = 200,
+#         subsample = 1,
+#         track_oob = TRUE)
 ```
 
-```{r fig}
-ggplot(mapping = aes(x=minb, y=resultats.minb.combined)) + geom_line() + geom_point() +
-    geom_point(aes(x=minb[which.min(resultats.minb.combined)]), y=min(resultats.minb.combined), size=4, col="red") + theme_bw() +
-    labs(title = "Optimisation de l'hyperparamètre 'minbucket'", x="minbucket", y="Déviance Poisson\nde l'échantillon de validation")
-```
+```{r RDS_bag}
 
-```{r}
-ggplot(mapping = aes(x=arbres, y=prev.forestsize)) + geom_line() + geom_point() + theme_bw() +
-    labs(title = "Optimisation du nombre d'arbres", x="Nombre d'arbres", y="Déviance de Poisson\nde l'échantillon de validation")
-```
+# # Save
+# saveRDS(
+#     list(
+#         resultats.bag=resultats.bag,
+#         mod.bag=mod.bag
+#     ), "bagging"
+# )
 
-```{r bagging final}
-mod.bag <- distRforest::rforest(
-        cbind(Expp, Numtppd)~.-Is_18,
-        method="poisson",
-        data=dat.non.valid,
-        control=rpart.control(
-            minbucket = minb[which.min(prev.nodesize)],
-            cp=0,
-            xval = 0
-        ),
-        ncand=12,
-        ntrees = 300,
-        subsample = 1)
+# Read
+bagging <- readRDS("bagging")
+resultats.bag <- bagging$resultats.bag
+mod.bag <- bagging$mod.bag
+
+# Prev bag
 prev_test.bag <- distRforest::predict.rforest(mod.bag, newdata = test)
 deviance.bag <- dev.pois(preds = prev_test.bag, clnb = test$Numtppd)
 ```
 
+```{r fig_minb_bag}
+ggplot(mapping = aes(x=minb[-1], y=resultats.bag[-1])) +
+    geom_point() + geom_line() +
+    geom_point(aes(x=minb[which.min(resultats.bag)]),
+               y=min(resultats.bag), size=4, col="orange", alpha=0.6) +
+    theme_bw() +
+        labs(title = "Optimisation de l'hyperparamètre 'minbucket'",
+             x="minbucket", y="Déviance Poisson moyenne OOB")
+```
+
+```{r fig_tree_bag}
+ggplot(mapping = aes(x=seq(10, 200, 10), y=mod.bag$oob_error[seq(10, 200, 10)])) + geom_line() + geom_point() + theme_bw() +
+    labs(title = "Optimisation du nombre d'arbres", x="Nombre d'arbres", y="Déviance de Poisson\nde l'échantillon de validation")
+```
+
 ## Forêt aléatoire
+
+```{r optimisation_foret, include=FALSE}
+# set.seed(8423)
+# 
+# # Valeurs à tester
+ncand <- 3:9
+minb.foret <- c(25, 35, 45, 55)
+# 
+# # initialisation boule
+# resultats.foret <- data.frame(ncand=ncand)
+# idx_j  <- 0
+# 
+# for(j in minb.foret){
+#     
+#     idx_j  <- idx_j + 1
+#     
+#     # Optimiser ncand
+#     prev.ncand <- numeric(length(ncand))
+#     
+#     idx_i <- 0
+#     for(i in ncand){
+#         
+#         idx_i <- idx_i + 1
+#         
+#         # Construire la foret
+#         foret <- distRforest::rforest(
+#             cbind(Expp, Numtppd)~.-Is_18,
+#             method="poisson",
+#             data=train.dat,
+#             control=rpart.control(
+#                 minbucket = j,
+#                 cp=0,
+#                 xval = 1
+#             ),
+#             ncand=i,
+#             ntrees = 125,
+#             subsample = 0.5,
+#             track_oob = TRUE)
+#     
+#         # Ajout de l'erreur
+#         prev.ncand[idx_i] <- tail(foret$oob_error, 1)
+#     }
+#     resultats.foret[, as.character(j)] <- prev.ncand
+# }
+# 
+# # Reshape the data
+# resultats.foret <- resultats.foret %>% 
+#   pivot_longer(cols = 2:ncol(resultats.foret),
+#                names_to = "minb",
+#                values_to = "Erreur")
+```
+
+```{r foret_final, include=FALSE}
+# set.seed(4230)
+# mod.foret <- distRforest::rforest(
+#         cbind(Expp, Numtppd)~.-Is_18,
+#         method="poisson",
+#         data=train.dat,
+#         control=rpart.control(
+#             minbucket = 45,
+#             cp=0,
+#             xval = 0
+#         ),
+#         ncand=6,
+#         ntrees = 150,
+#         subsample = 0.5,
+#         track_oob = T)
+```
+
+```{r RDS_foret}
+
+# # Save
+# saveRDS(
+#     list(
+#         mod.foret=mod.foret,
+#         resultats.foret=resultats.foret
+#     ), "foret"
+# )
+
+# Read
+foret <- readRDS("foret")
+resultats.foret <- foret$resultats.foret
+mod.foret <- foret$mod.foret
+
+# Prev foret
+prev_test.foret <- distRforest::predict.rforest(mod.foret, newdata = test)
+deviance.foret <- dev.pois(preds = prev_test.foret, clnb = test$Numtppd)
+```
+
+```{r fig_optim_foret}
+ggplot(resultats.foret, mapping = aes(x=ncand, y=Erreur, col=minb)) +
+    geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) + theme_bw() + theme(legend.position = "bottom") +
+    labs(title = "Optimisation des hyperparamètres 'm' et 'MinBucket'", x="Nombre de varible candidates (m)",
+         y="Déviance moyenne OOB", col="Minimum d'obs. par feuille :")
+```
 
 ## Gradient Boosting
 
+```{r}
+deviance.boost <- 8000
+```
+
 # Comparaison des modèles
+
+```{r table deviance}
+dev.df <- data.frame(
+    Modèle = c(
+        "Base (GLM)", "Lasso", "knn",
+        "Arbre", "Bagging",
+        "RF", "Boost"
+    ),
+    Déviance=c(
+        deviance.base, deviance.lasso,deviance.knn,
+        deviance.arbre, deviance.bag,
+        deviance.foret, deviance.boost)
+)
+dev.df <- dev.df[order(dev.df$Déviance), ]
+knitr::kable(dev.df, format = "markdown", digits = 0, row.names = FALSE, align = "c", 
+             label = "Déviance Poisson des modèle sur l'échantillon Test")
+```
+
+```{r fonctions_graphs}
+
+# double lift curve graph
+double_lift <- function(actual, ref, pred, mod.names=c("REF", "PRED"), k=4){
+
+    # Préparation
+    idx.order <- order(pred/ref)
+    n <- length(ref)
+    # normalisé
+    ref <- ref * mean(actual) / mean(ref)
+    pred <- pred * mean(actual) / mean(pred)
+
+    # Sort
+    ref <- ref[idx.order]
+    pred <- pred[idx.order]
+    actual <- actual[idx.order]
+    data <- data.frame(
+        FIGURE=c(ref, pred),
+        Model=as.factor(c(rep(mod.names[1], n), rep(mod.names[2], n)))
+    )
+
+    # Cut
+    data$GROUPE <- rep(cut(1:n, k, labels = F), 2)
+
+    # LR
+    sum_actual <- sapply(split(actual, cut(1:n, k, labels = F)), sum)
+    data <- data %>%
+        group_by(Model, GROUPE) %>%
+        summarise(LR = sum(FIGURE))
+    data$LR <- sum_actual / data$LR
+
+    # Graphique
+    p <- ggplot(data, aes(x=GROUPE, y=LR, col=Model)) +
+        geom_point(size=2.25) + geom_line(linewidth=1) +
+        geom_hline(yintercept = 1, linewidth=0.3, col="black", alpha=0.4)+
+        labs(title = "", y="Ratio", x="Groupe") + theme_bw()
+    print(p)
+}
+
+impact_analysis <- function(actual, ref, pred, mod.names=c("REF", "PRED"), k=4){
+
+    # Préparation
+    idx.order <- order(ref)
+    n <- length(ref)
+    # normalisé
+    ref <- ref * mean(actual) / mean(ref)
+    pred <- pred * mean(actual) / mean(pred)
+
+    # Sort
+    ref <- ref[idx.order]
+    pred <- pred[idx.order]
+    actual <- actual[idx.order]
+    data <- data.frame(
+        FIGURE=c(ref, pred, actual),
+        Model=as.factor(c(rep(mod.names[1], n), rep(mod.names[2], n), rep("ACTUAL", n)))
+    )
+
+    # Cut
+    data$GROUPE <- rep(cut(1:n, k, labels = F), 3)
+
+    # Moyenne
+    data <- data %>%
+        group_by(Model, GROUPE) %>%
+        summarise(MOYENNE = mean(FIGURE))
+
+    # Graphique
+    p <- ggplot(data, aes(x=GROUPE, y=MOYENNE, col=Model)) +
+        geom_point(size=2.25) + geom_line(linewidth=1) + labs(title = "Impact analysis", y="Moyene de sinistre", x="Group") + theme_bw()
+    print(p)
+}
+```
+
+```{r}
+double_lift(actual = test$Numtppd, ref = prev_test.base, pred = prev_test.knn, mod.names = c("GLM", "knn"), k=5)
+impact_analysis(actual = test$Numtppd, ref = prev_test.base, pred = prev_test.knn, mod.names = c("GLM", "knn"), k=5)
+```
 
 # Interprétation des meilleurs modèles
 
