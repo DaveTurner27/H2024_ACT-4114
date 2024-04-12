@@ -179,7 +179,7 @@ plotcp(arbre)
 ```{r Bagging, cache=TRUE}
 
 set.seed(154)
-minb <- seq(0, 150, 30)
+minb <- seq(0, 400, 50)
 ntry <- 20
 p <- 0.35
 resultats.minb <- matrix(ncol = ntry, nrow = length(minb))
@@ -261,9 +261,15 @@ for(a in arbres){
 ```
 
 ```{r fig}
-ggplot(mapping = aes(x=minb, y=resultats.minb.combined)) + geom_line() + geom_point() +
-    geom_point(aes(x=minb[which.min(resultats.minb.combined)]), y=min(resultats.minb.combined), size=4, col="red") + theme_bw() +
-    labs(title = "Optimisation de l'hyperparamètre 'minbucket'", x="minbucket", y="Déviance Poisson\nde l'échantillon de validation")
+ggplot(mapping = aes(x=minb, y=resultats.minb.combined)) +
+    geom_point() + geom_line() +
+    geom_point(aes(x=minb[which.min(resultats.minb.combined)]),
+               y=min(resultats.minb.combined), size=4, col="orange", alpha=0.6) +
+    geom_errorbar(aes(x = minb,
+        ymin = resultats.minb.combined - apply(resultats.minb, 1, sd),
+        ymax = resultats.minb.combined + apply(resultats.minb, 1, sd)), width=7, col="black") + theme_bw() +
+        labs(title = "Optimisation de l'hyperparamètre 'minbucket'",
+             x="minbucket", y="Déviance Poisson\nde l'échantillon de validation")
 ```
 
 ```{r}
@@ -289,6 +295,80 @@ deviance.bag <- dev.pois(preds = prev_test.bag, clnb = test$Numtppd)
 ```
 
 ## Forêt aléatoire
+
+```{r foret ncand, cache=TRUE}
+
+set.seed(8423)
+ncand <- 3:9
+minb.foret <- c(25, 35, 45, 55)
+resultats.foret <- data.frame(ncand=ncand)
+
+idx_j  <- 0
+for(j in minb.foret){
+    
+    idx_j  <- idx_j + 1
+    
+    # Optimiser ncand
+    prev.ncand <- numeric(length(ncand))
+    
+    idx_i <- 0
+    for(i in ncand){
+        
+        idx_i <- idx_i + 1
+        
+        # Construire la foret
+        foret <- distRforest::rforest(
+            cbind(Expp, Numtppd)~.-Is_18,
+            method="poisson",
+            data=train.dat,
+            control=rpart.control(
+                minbucket = j,
+                cp=0,
+                xval = 1
+            ),
+            ncand=i,
+            ntrees = 125,
+            subsample = 0.5,
+            track_oob = TRUE)
+    
+        # Ajout de l'erreur
+        prev.ncand[idx_i] <- tail(foret$oob_error, 1)
+    }
+    resultats.foret[, as.character(j)] <- prev.ncand
+}
+
+# Reshape the data
+resultats.foret <- resultats.foret %>% 
+  pivot_longer(cols = 2:ncol(resultats.foret),
+               names_to = "minb",
+               values_to = "Erreur")
+```
+
+```{r fig}
+ggplot(resultats.foret, mapping = aes(x=ncand, y=Erreur, col=minb)) +
+    geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) + theme_bw() + theme(legend.position = "bottom") +
+    labs(title = "Optimisation des hyperparamètres 'm' et 'MinBucket'", x="Nombre de varible candidates (m)",
+         y="Déviance moyenne OOB", col="Minimum d'obs. par feuille :")
+```
+
+```{r foret final}
+set.seed(4230)
+mod.foret <- distRforest::rforest(
+        cbind(Expp, Numtppd)~.-Is_18,
+        method="poisson",
+        data=train.dat,
+        control=rpart.control(
+            minbucket = 45,
+            cp=0,
+            xval = 0
+        ),
+        ncand=6,
+        ntrees = 150,
+        subsample = 0.5,
+        track_oob = T)
+prev_test.foret <- distRforest::predict.rforest(mod.foret, newdata = test)
+deviance.foret <- dev.pois(preds = prev_test.foret, clnb = test$Numtppd)
+```
 
 ## Gradient Boosting
 
