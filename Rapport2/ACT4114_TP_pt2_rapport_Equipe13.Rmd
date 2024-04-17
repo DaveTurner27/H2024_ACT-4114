@@ -51,7 +51,7 @@ dev.pois <- function(preds, clnb){
 
 # Introduction
 
-Les accidents automobiles sont fréquents partout à travers le monde. La France n'en fait pas exception. En effet, selon les statistiques de la Sécurité Routière, il y a eu, en 2020, environ 142 000 accidents de la route impliquant au moins un véhicule. Ceci représente approximativement 364 accidents par tranche de 100 000 conducteurs. Ces accidents comprennent une gamme de type, des collisions mineures aux accidents plus graves. Il est donc important pour les assureurs de modéliser efficacement la fréquence des accidents afin de prévoir le nombre de réclamations qu'aura une personne assurée durant la durée de sa police. La sévérité des sinistres est tout aussi importante à modéliser, mais nous allons nous concentrer sur la modélisation de la fréquence. 
+Les accidents automobiles sont fréquents partout à travers le monde. La France n'en fait pas exception. En effet, selon les statistiques de la Sécurité Routière, il y a eu, en 2020, environ 142 000 accidents de la route impliquant au moins un véhicule. Ceci représente approximativement 364 accidents par tranche de 100 000 conducteurs. Ces accidents comprennent une gamme de type, des collisions mineures aux accidents plus graves. Il est donc important pour les assureurs de modéliser efficacement la fréquence des accidents afin de prévoir le nombre de réclamations qu'aura une personne assurée durant la durée de sa police. La sévérité des sinistres est tout aussi importante à modéliser, mais nous allons nous concentrer sur la modélisation de la fréquence.
 
 Plus précisément, dans ce rapport, on modélisera la fréquence des réclamations pour la responsabilité civile (dommages matériels) en assurance automobile. Nos données représentent un portefeuille d'assurés français. Dans le tableau de données original on retrouve :
 
@@ -87,9 +87,8 @@ Dans ce rapport on présentera d'abord un modèle de base (GLM). Ensuite, on par
 
 ```{r base_mod}
 formula_base <- formula(
-    Numtppd ~ Gender + Type + Occupation +
-         + I(Age^2)+I(Age^3)+I(Age^4)+
-        I(Age^5)+I(Age^6)+I(Age^7)+
+    Numtppd ~ Gender + Type + Occupation +I(log(Age)^2)+I(log(Age)^3)+
+        I(log(Age)^4) + I(log(Age)^5) + I(log(Age)^6) + I(log(Age)^7)+
         Bonus + Poldur + Density + Region + log(Power) +
         offset(I(log(Expp)))
 )
@@ -110,13 +109,13 @@ Avec notre premier rapport, on a vu qu'il pourrait être intéressant d’utilis
 
 # Ajustement des modèles
 
-
 ## Régression régularisée Lasso
 
 ```{r Lasso, message=FALSE, warning=TRUE}
 # Mod sans reg
-mod.complet <- glm(Numtppd ~.+I(Age^2)+I(Age^3)+I(Age^4)+I(Age^5)+I(Age^6)+
-                       I(Age^7)-Expp-Power+I(log(Power)),
+mod.complet <- glm(Numtppd ~.+I(log(Age)^2)+I(log(Age)^3)+I(log(Age)^4)+
+                       I(log(Age)^5)+I(log(Age)^6)+
+                       I(log(Age)^7)-Expp-Power+I(log(Power)),
                    family = poisson, data = train.dat)
 
 # Data
@@ -152,7 +151,7 @@ deviance.lasso <- dev.pois(prev_test.lasso, test$Numtppd)
 
 Ici, on construit un modèle de régression régularisée *Lasso*. La distribution utilisée est une fois de plus la loi de Poisson. Le lien utilisé est le lien logarithmique. On rappelle qu'on utilise encore une régression polynomiale de degré 7 sur l'âge.
 
-L'avantage de la régression régularisée *Lasso* est que la sélection des variables explicatives est faite pour nous. La fonction *Score* de la régression est :
+L'avantage de la régression régularisée *Lasso* est que la sélection des variables explicatives est fait pour nous. La fonction *Score* de la régression est :
 
 $$ S^{Lasso}(\beta) = -l(\beta)/n + \lambda  \sum_{j = 1}^p | \beta_j|. $$
 
@@ -231,12 +230,11 @@ deviance.knn <- dev.pois(prev_test.knn, test.knn$Numtppd)
 
 Ici, on construit le modèle des k plus proches voisins. Nous devons nous limiter aux variables numériques pour construire ce modèle, on ne s'attend donc pas à avoir le meilleur modèle.
 
-Pour gérer l’exposition au risque, on utilise le ratio $\frac{N}{t}$ comme variable réponse. Le modèle fait une prévision pour une exposition de 1. Il suffit de multiplier par l'exposition réelle afin de trouver la prévision finale.  
+Pour gérer l’exposition au risque, on utilise le ratio $\frac{N}{t}$ comme variable réponse. Le modèle fait une prévision pour une exposition de 1. Il suffit de multiplier par l'exposition réelle afin de trouver la prévision finale.
 
-Le modèle comporte un seul hyperparamètre, soit le $k$ qui représente le nombre de voisins utilisés pour calculer les prévisions. 
-Pour ce faire, on utilise la procédure suivante :
+Le modèle comporte un seul hyperparamètre, soit le $k$ qui représente le nombre de voisins utilisés pour calculer les prévisions. Pour ce faire, on utilise la procédure suivante :
 
-1.  Créer un échantillon de validation de manière aléatoire avec 30 % des données de l'échantillon d'entrainement.
+1.  Créer un échantillon de validation de manière aléatoire avec 30 % de l'échantillon d'entrainement.
 
 2.  Faire les prévisions sur chaque observation de l'échantillon de validation, et ce, avec toutes les valeurs de $k$ testées. 
 Note : on utilise un léger biais de 1E-4 pour éviter les prévisions de 0.
@@ -264,7 +262,7 @@ ggplot(mapping = aes(x=k, y=colMeans(resultats.knn))) + geom_point() +
 set.seed(2019)
 tree.control <- rpart.control(
     cp = 0,
-    minbucket = 150L,
+    minbucket = 85L,
     xval = 10L)
 
 arbre <- rpart(
@@ -277,20 +275,22 @@ arbre <- rpart(
 err.min <- arbre$cptable[which.min(arbre$cptable[,4]),]
 err.max <- err.min[4] + err.min[5]
 cp.pois <- max(arbre$cptable[arbre$cptable[,4] <= err.max,1])
-# cp.pois <- arbre$cptable[which.min(arbre$cptable[,4]), 1]
+cp.pois <- arbre$cptable[which.min(arbre$cptable[,4]), 1]
 
-mod.arbre <- prune(arbre, cp = cp.pois)
+mod.arbre <- rpart::prune(arbre, cp = cp.pois)
 prev_test.arbre <- predict(mod.arbre, newdata=test)
 deviance.arbre <- dev.pois(prev_test.arbre, test$Numtppd)
 ```
 
-On construit maintenant un arbre de régression Poisson. On choisi la déviance de la loi Poisson comme fonction de perte. Ce choix est assez intuitif étant donné que nous sommes en présence de données de comptage.
+On construit maintenant un arbre de régression Poisson. On choisit la déviance Poisson comme fonction de perte. Ce choix est assez intuitif étant donné que nous sommes en présence de données de comptage.
 
-Avant de faire un arbre il faut choisir le coefficient de variation de la distribution à priori $(\gamma)$. On décide de garder la valeur par défaut que `R` nous suggère pour cet hyperparamètre, puisque de toute façon ce dernier ne devrait pas influencer la performance du modèle de manière significative.
+Avant de faire un arbre, il faut choisir le coefficient de variation de la distribution à priori $(\gamma)$. On décide de garder la valeur par défaut que `R` nous suggère pour cet hyperparamètre, puisque de toute façon, ce dernier ne devrait pas influencer la performance du modèle de manière significative.
 
-On procède ensuite par validation croisée à 10 plis pour trouver la valeur idéale du cp. On chosit le cp qui donne la plus petite déviance moyenne de la validation croisée. En fait, on choisit la plus grande valeur qui est en dessous de la valeur minimale + 1 écart type. La valeur idéale trouvée est de `r cp.pois`. Avec cette valeur on peut obtenir l'arbre final.
+On utilise un nombre d'observations par feuille minimal de 85. Cette valeur choisie au jugement permet d'avoir un minimum de 0.1 % des observations par feuille. Ce hyperparamètre n'a pas besoin d'être précis, puisque le cp va s'occuper de l'élagage.
 
-```{r fig_cp_arbre}
+On procède par une validation croisée à 10 plis afin de trouver la valeur idéale du cp. On choisit le cp qui donne la plus petite déviance moyenne de la validation croisée. La valeur idéale trouvée est `r cp.pois`. Avec cette valeur, on peut obtenir l'arbre final. Le graphique 3 permet d'illustrer le processus d'optimisation de l'hyperparamètre.
+
+```{r fig_cp_arbre, fig.cap="Optimisation de de l'hyperparamètre cp (arbre)", fig.align = "center", fig.height=3.6}
 plotcp(arbre, upper = "none", col = "orange", lty = 1, pch=16, cex=0.5, ylim=c(0.8, 0.9), main="Erreur relative de la validation croisée en fonction du cp")
 ```
 
@@ -366,7 +366,11 @@ prev_test.bag <- distRforest::predict.rforest(mod.bag, newdata = test)
 deviance.bag <- dev.pois(preds = prev_test.bag, clnb = test$Numtppd)
 ```
 
-```{r fig_minb_bag}
+On construit ici un modèle de *bagging*. La fonction de perte utilisée est encore la déviance poisson.
+
+Deux hyperparamètres sont à optimiser soit le nombre d'observations minimal par feuille et le nombre d'arbres utilisées. Pour l'optimisation du nombre minimal d'observations par feuille (*minbucket*), on a entrainé différents modèles identiques, mais avec une valeur de *minbucket* différente allant de 0 à 225 avec des bonds de 25. Pour tous ces modèles, on utilise 200 arbres. Le *minbucket* choisi est celui qui optimise la déviance moyenne des observations hors échantillon (OOB). Le graphique 4 illustre le processus d'optimisation. La valeur choisie est de 100 tel qu'illustrée par le graphique. Le choix de prendre 200 arbres a été vérifié graphiquement avec l'erreur OOB en fonction du nombre d'arbres.
+
+```{r fig_minb_bag, fig.cap="Optimisation de l'hyperparamètre minbucket (bagging)", fig.align = "center", fig.height=3.6}
 ggplot(mapping = aes(x=minb[-1], y=resultats.bag[-1])) +
     geom_point() + geom_line() +
     geom_point(aes(x=minb[which.min(resultats.bag)]),
@@ -376,7 +380,7 @@ ggplot(mapping = aes(x=minb[-1], y=resultats.bag[-1])) +
              x="minbucket", y="Déviance moyenne OOB")
 ```
 
-```{r fig_tree_bag}
+```{r fig_tree_bag, eval=FALSE}
 ggplot(mapping = aes(x=seq(10, 200, 10), y=mod.bag$oob_error[seq(10, 200, 10)])) + geom_line() + geom_point() + theme_bw() +
     labs(title = "Déviance moyenne OOB en fonction du nombre d'arbres", x="Nombre d'arbres", y="Déviance moyenne OOB")
 ```
@@ -473,18 +477,87 @@ prev_test.foret <- distRforest::predict.rforest(mod.foret, newdata = test)
 deviance.foret <- dev.pois(preds = prev_test.foret, clnb = test$Numtppd)
 ```
 
-```{r fig_optim_foret}
+On construit maintenant un modèle de forêt aléatoire. La fonction de perte utilisée est la déviance Poisson.
+
+Plusieurs hyperparamètres sont à déterminer :
+
+-   proportion du nombre d'observations des échantillons *bootstrap*;
+
+-   nombre minimal d'observations par feuille (*minbucket*);
+
+-   nombre de variables candidates (m);
+
+-   nombre d'arbres dans la forêt.
+
+On utilise une proportion de 50 % du nombre d'observations pour faire les échantillons *bootstrap.* Ce choix est motivé par un souci de puissance de calculs. De plus, la valeur choisit ne devrait pas modifier de manière très significative la performance du modèle.
+
+Le nombre d'arbre est initialement déterminé à 125 puisque ce nombre semblait suffisant avec un graphique OOB sur un modèle initial avec hyperparamètres non optimisés. Ce nombre permet aussi d'avoir des temps de calculs plus raisonnable pour l'optimisation des hyperparamètres m et *minbucket*. La validité de ce nombre sera revérifiée à la fin du processus d'optimisation.
+
+Pour optimiser m et *minbucket*, on construit un modèle pour toutes les combinaisons possibles des valeurs d'hyperparamètres testées. Pour chaque modèle, on calcule la déviance moyenne OOB. On teste les valeurs d'hyperparamètres suivantes :
+
+-   $m \in [3, 4, \dots, 11]$;
+
+-   $minbucket \in [20, 40, 60, 80]$.
+
+Le graphique 5 permet de visualiser le processus. On voit sur le graphique que la combinaison *minbucket* = 40 et m = 8 semble être la combinaison optimale.
+
+On finit la modélisation en ré-entraînant le modèle avec les hyperparamètres optimaux et on choisit un nombre d'arbres de 150 pour être sûr d'en avoir suffisamment.
+
+```{r fig_optim_foret, fig.cap="Optimisation des hyperparamètres m et minbucket (RF)", fig.align = "center", fig.height=3.6}
 ggplot(resultats.foret, mapping = aes(x=ncand, y=Erreur, col=minb)) +
     geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) + theme_bw() + theme(legend.position = "bottom") +
     scale_x_continuous(breaks = seq(min(resultats.foret$ncand), max(resultats.foret$ncand), by = 1))+
-    labs(title = "Optimisation des hyperparamètres 'm' et 'MinBucket'", x="Nombre de varible candidates (m)",
+    labs(title = "Déviance OOB en fonction des hyperparamètres\n'm' et 'MinBucket'", x="Nombre de variables candidates (m)",
          y="Déviance moyenne OOB", col="Minimum d'obs. par feuille :")
 ```
 
 ## Gradient Boosting
 
+Finalement, on fait le modèle de *boosting* de gradient stochastique. La fonction de perte utilisée est la déviance Poisson.
+
+Plusieurs hyperparamètres sont à déterminer :
+
+-   proportion du nombre d'observations des échantillons *bootstrap* (*bag.fraction*);
+
+-   profondeur maximale des arbres (*max.depth*);
+
+-   nombre minimal d'observations par feuille (*n.minobsinnode*);
+
+-   taux d'apprentissage (*shrinkage*);
+
+-   nombre d'itérations (*iter*).
+
+Les hyperparamètres *shrinkage* et *n.minobsinnode* ont été posés respectivement à 0.01 et 100. La valeur de *shrinkage* a été choisie de manière à prendre la plus petite valeur qui permet d'avoir un temps de calculs acceptable. La valeur de *n.minobsinnode* est choisie arbitrairement pour avoir une proportion d'observations minimale dans chaque feuille. Le choix de cette dernière n'est pas critique, car *max.depth* limite le surajustement.
+
+Pour optimiser *bag.fraction, iter* et *max.depth*, on étudie les valeurs suivantes :
+
+-   $\text{max.depth} \in [3, 4, 5, 7, 9]$;
+
+-   $\text{bag.fraction} \in [0.5, 0.65, 0.8]$.
+
+Pour choisir la meilleure combinaison, on utilise la procédure suivante :
+
+1.  Créer un échantillon de validation avec 15 000 observations.
+
+2.  Entraîner un modèle avec une validation croisée avec 5 plis et une combinaison des hyperparamètres *max.depth* et *bag.fraction.*
+
+3.  Utiliser la valeur d'*iter* qui minimise la déviance de la validation croisée.
+
+4.  Calculer la déviance sur l'échantillon de validation en utilisant les hyperparamètres choisis.
+
+5.  Répéter les étapes 2, 3, et 4 avec une combinaison d'hyperparamètres différente et ce jusqu'à ce que toutes les combinaisons aillent été testées.
+
+On peut étudier les résultats dans le graphique 6 où il est possible de voir que la meilleure combinaison de *max.depth* et *bag.fraction* est de 3 et 0.65. Le nombre d'itérations optimal pour cette combinaison est 6873.
+
 ```{r}
-deviance.boost <- 8000
+resultats.boost <- data.frame(
+  dev = c(7505.349, 7497.359, 7498.229, 7515.664, 7508.734, 7510.15, 7522.524, 7516.784, 7520.214, 7530.023, 7529.926, 7526.136, 7542.498, 7532.378, 7536.299),
+  interaction.depth = c(3, 3, 3, 4, 4, 4, 5, 5, 5, 7, 7, 7, 9, 9, 9),
+  bag.fraction = c(0.5, 0.65, 0.8, 0.5, 0.65, 0.8, 0.5, 0.65, 0.8, 0.5, 0.65, 0.8, 0.5, 0.65, 0.8),
+  best.iter.cv = c(7438, 6873, 7413, 6070, 5554, 5797, 4794, 5341, 4528, 2953, 3553, 3561, 2911, 2540, 2967)
+)
+
+# mod.boost <- 
 ```
 
 # Comparaison des modèles
