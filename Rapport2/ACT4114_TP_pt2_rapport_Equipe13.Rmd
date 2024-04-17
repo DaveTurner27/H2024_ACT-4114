@@ -51,9 +51,9 @@ dev.pois <- function(preds, clnb){
 
 # Introduction
 
-La tarification en assurance de dommage est un processus complexe et intéressant. Il est souvent nécessaire et plus efficace de séparer le processus de modélisation du risque en deux parties. La première partie est la fréquence des sinistres. Cette partie de la modélisation est cruciale, puisque c'est elle qui nous permet de prévoir le nombre de réclamations qu'aura une personne assurée durant la durée de sa police. Il est donc essentiel de savoir comment modéliser efficacement et le plus précisément possible la fréquence en assurance de dommage.
+Les accidents automobiles sont fréquents partout à travers le monde. La France n'en fait pas exception. En effet, selon les statistiques de la Sécurité Routière, il y a eu, en 2020, environ 142 000 accidents de la route impliquant au moins un véhicule. Ceci représente environ 364 accidents par tranche de 100 000 conducteurs. Ces accidents comprennent une gamme de type, des collisions mineures aux accidents plus graves. Il est donc important pour les assureurs de modéliser efficacement la fréquence des accidents afin de prévoir le nombre de réclamations qu'aura une personne assurée durant la durée de sa police. La sévérité des sinistres est tout aussi importante à modéliser, mais nous allons nous concentrer sur la modélisation de la fréquence. 
 
-Dans ce rapport, on modélise la fréquence des réclamations pour la responsabilité civile (dommages matériels) en assurance automobile. Nos données représentent un portefeuille d'assurés français. Dans le tableau de données original on retrouve :
+Plus précisément, dans ce rapport, on modélisera la fréquence des réclamations pour la responsabilité civile (dommages matériels) en assurance automobile. Nos données représentent un portefeuille d'assurés français. Dans le tableau de données original on retrouve :
 
 -   la variable réponse $N$, qui est nommée `Numtppd`;
 
