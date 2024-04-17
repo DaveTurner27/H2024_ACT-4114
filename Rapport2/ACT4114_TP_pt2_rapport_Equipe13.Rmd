@@ -23,7 +23,8 @@ knitr::opts_chunk$set(echo = FALSE, cache = TRUE, message = FALSE, warning = FAL
 ```{r paquetages, message=FALSE, warning=FALSE, eval=TRUE, include=FALSE, echo = FALSE}
 ### Liste des paquetages
 liste.paquetage <- c("ggplot2", "FactoMineR", "pls", "mice", "car", "MASS",
-                     "glmnet", "caret", "FNN", "dplyr", "rpart", "rpart.plot", "tidyverse")
+                     "glmnet", "caret", "FNN", "dplyr", "rpart", "rpart.plot", "tidyverse",
+                     "Matrix", "data.table")
 
 ### On installe les paquetages de la liste qu'on a pas déjà
 inst <- liste.paquetage %in% installed.packages()
@@ -35,6 +36,12 @@ l <- lapply(liste.paquetage, require, character.only = TRUE)
 ```{r import}
 train.dat <- read.csv("train.csv")[, -1]
 test <- read.csv("test.csv")[, -1]
+
+for(idx in c("Gender", "Type", "Category",
+             "Occupation", "Adind", "Region", "Is_18")){
+    train.dat[, idx] <- factor(train.dat[, idx])
+    test[, idx] <- factor(test[, idx])
+}
 
 # Déviance poisson
 dev.pois <- function(preds, clnb){
@@ -81,7 +88,10 @@ Dans ce rapport on présentera d'abord un modèle de base (GLM). Ensuite, on par
 ```{r base_mod}
 formula_base <- formula(
     Numtppd ~ Gender + Type + Occupation +
-        poly(Age, 7) + Bonus + Is_18 + Poldur + Density + Region + log(Power) + offset(Expp)
+         + I(Age^2)+I(Age^3)+I(Age^4)+
+        I(Age^5)+I(Age^6)+I(Age^7)+
+        Bonus + Poldur + Density + Region + log(Power) +
+        offset(I(log(Expp)))
 )
 mod.base <- glm(
     formula = formula_base,
@@ -102,9 +112,11 @@ Avec notre rapport 1 on a vu qu'il pourrait être intéressant d'utilises la var
 
 ## Régression régularisée Lasso
 
-```{r Lasso, message=FALSE, warning=FALSE, cache=TRUE}
+```{r Lasso, message=FALSE, warning=TRUE}
 # Mod sans reg
-mod.complet <- glm(Numtppd ~.-Age+poly(Age, 7)-Expp-Power+I(log(Power))+offset(Expp), family = poisson, data = train.dat)
+mod.complet <- glm(Numtppd ~.+I(Age^2)+I(Age^3)+I(Age^4)+I(Age^5)+I(Age^6)+
+                       I(Age^7)-Expp-Power+I(log(Power)),
+                   family = poisson, data = train.dat)
 
 # Data
 x.train <- model.matrix(mod.complet, data = train.dat)[, -1]
@@ -112,13 +124,28 @@ y.train <- train.dat$Numtppd
 x.test <- model.matrix(mod.complet, data = test)[, -1]
 
 # lambda
-set.seed(111)
-cv.out <- cv.glmnet(x.train, y.train, alpha = 1, nfolds = 10, family = "poisson")
-meilleur.lam.lasso <- cv.out$lambda.min
-mod.lasso <- glmnet(x.train, y.train, family = "poisson", alpha = 1, lambda = meilleur.lam.lasso)
+# set.seed(111)
+# cv.out <- cv.glmnet(
+#     x.train, y.train, offset = I(log(train.dat$Expp)),
+#     alpha = 1, nfolds = 10, family = "poisson", 
+# )
+# meilleur.lam.lasso <- cv.out$lambda.min
+# mod.lasso <- glmnet(x.train, y.train, family = "poisson",
+#                     alpha = 1, lambda = meilleur.lam.lasso, offset = log(train.dat$Expp))
+```
+
+```{r rds_lasso}
+# saveRDS(list(
+#     cv.out=cv.out,
+#     meilleur.lam.lasso=meilleur.lam.lasso,
+#     mod.lasso=mod.lasso), "lasso")
+lasso <- readRDS("lasso")
+cv.out <- lasso$cv.out
+meilleur.lam.lasso <- lasso$meilleur.lam.lasso
+mod.lasso <- lasso$mod.lasso
 
 # Prév
-prev_test.lasso <- predict(mod.lasso, newx = x.test, type = "response")
+prev_test.lasso <- exp(predict(mod.lasso, newx = x.test, newoffset = I(log(test$Expp))))
 deviance.lasso <- dev.pois(prev_test.lasso, test$Numtppd)
 ```
 
@@ -132,21 +159,26 @@ Le vecteur $\beta$ est le vecteur de paramètres qui sera estimé par maximum de
 
 Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi par validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la déviance de Poisson moyenne de la validation croisée. Sa valeur est de `r meilleur.lam.lasso`. La figure ci-dessous montre comment cette valeur est sélectionnée.
 
-```{r fig_lam_lasso}
-plot(cv.out)
+```{r fig_lam_lasso, fig.cap="Optimisation de de l'hyperparamètre lambda (Lasso)", fig.align = "center", fig.height=3.6}
+ggplot(mapping = aes(x=log(cv.out$lambda), y=cv.out$cvm)) + geom_point() + geom_line() + theme_bw() +
+    labs(title="Déviance moyenne en fonction de lambda (Lasso)",
+         x="log(lambda)", y="Déviance moyenne")
 ```
 
 ## k plus proches voisins
 
 ```{r knn_optimise_k, include=FALSE}
 
-# iter <- 20
+iter <- 30
 k <- seq(75, 105, 5)
+    keep.cols <- c("Numtppd", "Expp", "Age",
+                   "Bonus", "Poldur", "Value",
+                   "Density", "Power")
 # resultats.knn <- matrix(nrow = iter, ncol = length(k))
 # 
 # set.seed(55)
 # for(i in 1:iter){
-#     
+# 
 #     # Création du jeu de validation
 #     p <- 0.3
 #     idx_not0 <- which(train.dat$Numtppd > 0)
@@ -154,26 +186,23 @@ k <- seq(75, 105, 5)
 #     ind.val <- c(
 #         sample(idx_0, round(p*length(idx_0))),
 #         sample(idx_not0, round(p*length(idx_not0))))
-#     keep.cols <- c("Numtppd", "Expp", "Age",
-#                    "Bonus", "Poldur", "Value",
-#                    "Adind", "Density", "Power")
 #     dat.valid <- train.dat[ind.val, keep.cols]
 #     dat.non.valid <- train.dat[-ind.val, keep.cols]
-#     
+# 
 #     # initier la boucle
 #     idx <- 0
-#     
+# 
 #     for(k_neib in k){
-#         
+# 
 #         idx <- idx + 1
-#         
+# 
 #         # fit knn
 #         fit <- knn.reg(
 #             train = dat.non.valid[, -c(1, 2)],
 #             y = dat.non.valid$Numtppd / dat.non.valid$Expp,
 #             test = dat.valid[, -c(1, 2)],
 #             k = k_neib)
-#         
+# 
 #         # Prev
 #         prevs <- fit$pred * dat.valid$Expp + 1E-4
 #         resultats.knn[i, idx] <- dev.pois(preds = prevs, clnb = dat.valid$Numtppd)
@@ -186,12 +215,12 @@ k <- seq(75, 105, 5)
 resultats.knn <- readRDS("knn")
 
 # Faire les prév test
-tain.knn <- train.dat[, keep.cols]
+train.knn <- train.dat[, keep.cols]
 test.knn <- test[, keep.cols]
 
 fit_knn_test <- knn.reg(
-    train = tain.knn[, -c(1, 2)],
-    y = tain.knn$Numtppd / tain.knn$Expp,
+    train = train.knn[, -c(1, 2)],
+    y = train.knn$Numtppd / train.knn$Expp,
     test = test.knn[, -c(1, 2)],
     k = k[which.min(colMeans(resultats.knn))])
 
@@ -199,11 +228,13 @@ prev_test.knn <- fit_knn_test$pred * test$Expp + 1E-4
 deviance.knn <- dev.pois(prev_test.knn, test.knn$Numtppd)
 ```
 
-```{r fig_knn}
+```{r fig_knn, fig.cap="Optimisation de de l'hyperparamètre k (knn)", fig.align = "center", fig.height=3.6}
 ggplot(mapping = aes(x=k, y=colMeans(resultats.knn))) + geom_point() + 
      geom_point(aes(x=k[which.min(colMeans(resultats.knn))]),
                y=min(colMeans(resultats.knn)), size=4, col="orange", alpha=0.6)+
-    geom_line() + theme_bw() + labs()
+    geom_line() + theme_bw() + 
+    labs(y="Moyenne des déviances\ndes échantillons  de validations", x="Nombre de voisins (k)",
+         title = "Déviance moyenne en fonction de k (knn)")
 ```
 
 ## Arbre de décision
@@ -212,7 +243,7 @@ ggplot(mapping = aes(x=k, y=colMeans(resultats.knn))) + geom_point() +
 set.seed(2019)
 tree.control <- rpart.control(
     cp = 0,
-    minbucket = 200L,
+    minbucket = 150L,
     xval = 10L)
 
 arbre <- rpart(
@@ -239,8 +270,7 @@ Avant de faire un arbre il faut choisir le coefficient de variation de la distri
 On procède ensuite par validation croisée à 10 plis pour trouver la valeur idéale du cp. On chosit le cp qui donne la plus petite déviance moyenne de la validation croisée. En fait, on choisit la plus grande valeur qui est en dessous de la valeur minimale + 1 écart type. La valeur idéale trouvée est de `r cp.pois`. Avec cette valeur on peut obtenir l'arbre final.
 
 ```{r fig_cp_arbre}
-plotcp(arbre, upper = "none", col = "orange", lty = 1, pch=16, cex=0.5, ylim=c(0.8, 0.9),
-       main="Optimisation de l'hyperparamètre CP")
+plotcp(arbre, upper = "none", col = "orange", lty = 1, pch=16, cex=0.5, ylim=c(0.8, 0.9), main="Erreur relative de la validation croisée en fonction du cp")
 ```
 
 ## Bagging
@@ -249,18 +279,18 @@ plotcp(arbre, upper = "none", col = "orange", lty = 1, pch=16, cex=0.5, ylim=c(0
 
 # set.seed(154)
 minb <- seq(0, 225, 25)
-# 
-# # Optimiser minbucket
-# resultats.bag <- numeric(length(minb))
-# 
+
+# Optimiser minbucket
+resultats.bag <- numeric(length(minb))
+
 # idx <- 0
 # for(i in minb){
-#     
+# 
 #     idx <- idx + 1
-#     
+# 
 #     # Construire la foret
 #     foret.node <- distRforest::rforest(
-#         cbind(Expp, Numtppd)~.-Is_18,
+#         cbind(Expp, Numtppd)~.,
 #         method="poisson",
 #         data=train.dat,
 #         control=rpart.control(
@@ -268,7 +298,7 @@ minb <- seq(0, 225, 25)
 #             cp=0,
 #             xval = 1
 #         ),
-#         ncand=12,
+#         ncand=13,
 #         ntrees = 200,
 #         subsample = 1,
 #         track_oob = TRUE)
@@ -281,7 +311,7 @@ minb <- seq(0, 225, 25)
 ```{r optimisation_tree_bag, include=FALSE}
 # # Optimiser nombre d'arbres
 # mod.bag <- distRforest::rforest(
-#         cbind(Expp, Numtppd)~.-Is_18,
+#         cbind(Expp, Numtppd)~.,
 #         method="poisson",
 #         data=train.dat,
 #         control=rpart.control(
@@ -289,7 +319,7 @@ minb <- seq(0, 225, 25)
 #             cp=0,
 #             xval = 1
 #         ),
-#         ncand=12,
+#         ncand=13,
 #         ntrees = 200,
 #         subsample = 1,
 #         track_oob = TRUE)
@@ -321,43 +351,43 @@ ggplot(mapping = aes(x=minb[-1], y=resultats.bag[-1])) +
     geom_point(aes(x=minb[which.min(resultats.bag)]),
                y=min(resultats.bag), size=4, col="orange", alpha=0.6) +
     theme_bw() +
-        labs(title = "Optimisation de l'hyperparamètre 'minbucket'",
-             x="minbucket", y="Déviance Poisson moyenne OOB")
+        labs(title = "Déviance moyenne OOB en fonction de 'minbucket'",
+             x="minbucket", y="Déviance moyenne OOB")
 ```
 
 ```{r fig_tree_bag}
 ggplot(mapping = aes(x=seq(10, 200, 10), y=mod.bag$oob_error[seq(10, 200, 10)])) + geom_line() + geom_point() + theme_bw() +
-    labs(title = "Optimisation du nombre d'arbres", x="Nombre d'arbres", y="Déviance de Poisson\nde l'échantillon de validation")
+    labs(title = "Déviance moyenne OOB en fonction du nombre d'arbres", x="Nombre d'arbres", y="Déviance moyenne OOB")
 ```
 
 ## Forêt aléatoire
 
 ```{r optimisation_foret, include=FALSE}
-# set.seed(8423)
-# 
-# # Valeurs à tester
-ncand <- 3:9
-minb.foret <- c(25, 35, 45, 55)
-# 
+# set.seed(7815)
+
+# Valeurs à tester
+ncand <- 3:11
+minb.foret <- c(20, 40, 60, 80)
+
 # # initialisation boule
 # resultats.foret <- data.frame(ncand=ncand)
 # idx_j  <- 0
 # 
 # for(j in minb.foret){
-#     
+# 
 #     idx_j  <- idx_j + 1
-#     
+# 
 #     # Optimiser ncand
 #     prev.ncand <- numeric(length(ncand))
-#     
+# 
 #     idx_i <- 0
 #     for(i in ncand){
-#         
+# 
 #         idx_i <- idx_i + 1
-#         
+# 
 #         # Construire la foret
 #         foret <- distRforest::rforest(
-#             cbind(Expp, Numtppd)~.-Is_18,
+#             cbind(Expp, Numtppd)~.,
 #             method="poisson",
 #             data=train.dat,
 #             control=rpart.control(
@@ -369,7 +399,7 @@ minb.foret <- c(25, 35, 45, 55)
 #             ntrees = 125,
 #             subsample = 0.5,
 #             track_oob = TRUE)
-#     
+# 
 #         # Ajout de l'erreur
 #         prev.ncand[idx_i] <- tail(foret$oob_error, 1)
 #     }
@@ -377,7 +407,7 @@ minb.foret <- c(25, 35, 45, 55)
 # }
 # 
 # # Reshape the data
-# resultats.foret <- resultats.foret %>% 
+# resultats.foret <- resultats.foret %>%
 #   pivot_longer(cols = 2:ncol(resultats.foret),
 #                names_to = "minb",
 #                values_to = "Erreur")
@@ -386,15 +416,17 @@ minb.foret <- c(25, 35, 45, 55)
 ```{r foret_final, include=FALSE}
 # set.seed(4230)
 # mod.foret <- distRforest::rforest(
-#         cbind(Expp, Numtppd)~.-Is_18,
+#         cbind(Expp, Numtppd)~.,
 #         method="poisson",
 #         data=train.dat,
 #         control=rpart.control(
-#             minbucket = 45,
+#             minbucket = as.numeric(
+#                 resultats.foret[which.min(resultats.foret$Erreur), ]$minb),
 #             cp=0,
 #             xval = 0
 #         ),
-#         ncand=6,
+#         ncand=as.numeric(
+#             resultats.foret[which.min(resultats.foret$Erreur), ]$ncand),
 #         ntrees = 150,
 #         subsample = 0.5,
 #         track_oob = T)
@@ -423,6 +455,7 @@ deviance.foret <- dev.pois(preds = prev_test.foret, clnb = test$Numtppd)
 ```{r fig_optim_foret}
 ggplot(resultats.foret, mapping = aes(x=ncand, y=Erreur, col=minb)) +
     geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) + theme_bw() + theme(legend.position = "bottom") +
+    scale_x_continuous(breaks = seq(min(resultats.foret$ncand), max(resultats.foret$ncand), by = 1))+
     labs(title = "Optimisation des hyperparamètres 'm' et 'MinBucket'", x="Nombre de varible candidates (m)",
          y="Déviance moyenne OOB", col="Minimum d'obs. par feuille :")
 ```
@@ -506,7 +539,7 @@ impact_analysis <- function(actual, ref, pred, mod.names=c("REF", "PRED"), k=4){
     actual <- actual[idx.order]
     data <- data.frame(
         FIGURE=c(ref, pred, actual),
-        Model=as.factor(c(rep(mod.names[1], n), rep(mod.names[2], n), rep("ACTUAL", n)))
+        Model=as.factor(c(rep(mod.names[1], n), rep(mod.names[2], n), rep("Vraie valeur", n)))
     )
 
     # Cut
@@ -525,8 +558,8 @@ impact_analysis <- function(actual, ref, pred, mod.names=c("REF", "PRED"), k=4){
 ```
 
 ```{r}
-double_lift(actual = test$Numtppd, ref = prev_test.base, pred = prev_test.knn, mod.names = c("GLM", "knn"), k=5)
-impact_analysis(actual = test$Numtppd, ref = prev_test.base, pred = prev_test.knn, mod.names = c("GLM", "knn"), k=5)
+double_lift(actual = test$Numtppd, ref = prev_test.base, pred = prev_test.arbre, mod.names = c("GLM", "Arbre"), k=5)
+impact_analysis(actual = test$Numtppd, ref = prev_test.base, pred = prev_test.arbre, mod.names = c("GLM", "Arbre"), k=5)
 ```
 
 # Interprétation des meilleurs modèles
