@@ -51,7 +51,7 @@ dev.pois <- function(preds, clnb){
 
 # Introduction
 
-Les accidents automobiles sont fréquents partout à travers le monde. La France n'en fait pas exception. En effet, selon les statistiques de la Sécurité Routière, il y a eu, en 2020, environ 142 000 accidents de la route impliquant au moins un véhicule. Ceci représente environ 364 accidents par tranche de 100 000 conducteurs. Ces accidents comprennent une gamme de type, des collisions mineures aux accidents plus graves. Il est donc important pour les assureurs de modéliser efficacement la fréquence des accidents afin de prévoir le nombre de réclamations qu'aura une personne assurée durant la durée de sa police. La sévérité des sinistres est tout aussi importante à modéliser, mais nous allons nous concentrer sur la modélisation de la fréquence.
+Les accidents automobiles sont fréquents partout à travers le monde. La France n'en fait pas exception. En effet, selon les statistiques de la Sécurité Routière, il y a eu, en 2020, environ 142 000 accidents de la route impliquant au moins un véhicule. Ceci représente approximativement 364 accidents par tranche de 100 000 conducteurs. Ces accidents comprennent une gamme de type, des collisions mineures aux accidents plus graves. Il est donc important pour les assureurs de modéliser efficacement la fréquence des accidents afin de prévoir le nombre de réclamations qu'aura une personne assurée durant la durée de sa police. La sévérité des sinistres est tout aussi importante à modéliser, mais nous allons nous concentrer sur la modélisation de la fréquence.
 
 Plus précisément, dans ce rapport, on modélisera la fréquence des réclamations pour la responsabilité civile (dommages matériels) en assurance automobile. Nos données représentent un portefeuille d'assurés français. Dans le tableau de données original on retrouve :
 
@@ -101,11 +101,11 @@ prev_test.base <- predict(mod.base, newdata=test, type="response")
 deviance.base <- dev.pois(prev_test.base, test$Numtppd)
 ```
 
-Après avoir séparé les données en deux échantillons : `train` (85 % des données) et `test` (15 % des données), on est prêt à construire le modèle de base. On fait face à un problème de régression et la variable réponse est discrète. La loi de Poisson, la loi Binomiale Négative et la de Poisson gonflée à zéro sont toutes de bonnes possibilités pour construire un modèle linéaire généralisé sur des données de comptages.
+Après avoir séparé les données en deux échantillons soit `train` (85 % des données) et `test` (15 % des données), on est prêt à construire le modèle de base. On fait face à un problème de régression avec une variable réponse discrète. La loi de Poisson, la loi Binomiale Négative et la de Poisson gonflée à zéro sont toutes des possibilités pour construire un modèle linéaire généralisé sur des données de comptages.
 
-En revanche, le modèle choisi est le modèle de Poisson. On fait ce choix, car ce modèle est le plus simple ce qui est idéale pour un modèle de base. Le modèle est donc un GLM Poisson avec fonction de lien logarithmique.
+Dans notre cas, le modèle choisi est le modèle Poisson, car c'est le choix le plus simple pour un modèle de base. Le modèle est donc un GLM Poisson avec fonction de lien logarithmique.
 
-Avec notre rapport 1 on a vu qu'il pourrait être intéressant d’utiliser la variable âge jusqu'au degré 7 (âge, âge$^2, \dots$, âge$^7$). À première vue, cette technique semble effectivement efficace, puisqu'après la sélection de variable, on conserve les 7 variables. Pour la sélection des variables, on a fait une analyse de déviance au seuil de confiance 99 % en utilisant la méthode algorithmique *Backward*. C'est donc un modèle simple, mais celui-ci demeure un référence fiable pour la suite.
+Avec notre premier rapport, on a vu qu'il pourrait être intéressant d’utiliser la variable `age` jusqu'au degré 7 (âge, âge$^2, \dots$, âge$^7$). Cela veut dire que la relation entre la variable `age` et notre variable réponse est complexe. Pour mieux l'expliquer, on vient donc utiliser un polynôme de degré 7. À première vue, cette technique semble effectivement efficace, puisqu'après la sélection de variables, on conserve les 7 variables reliées à l'age. Pour sélectionner nos variables, on a fait une analyse de déviance au seuil de confiance 99 % en utilisant la méthode algorithmique *Backward*. C'est donc un modèle simple, mais qui demeure une référence fiable pour la suite.
 
 # Ajustement des modèles
 
@@ -149,7 +149,7 @@ prev_test.lasso <- exp(predict(mod.lasso, newx = x.test, newoffset = I(log(test$
 deviance.lasso <- dev.pois(prev_test.lasso, test$Numtppd)
 ```
 
-Ici, on construit un modèle de régression régularisée *Lasso*. La distribution utilisée est encore une loi de Poisson. Le lien utilisé est le lien log. On rappelle qu'on utilise encore une régression polynomiale de degré 7 sur l'âge.
+Ici, on construit un modèle de régression régularisée *Lasso*. La distribution utilisée est une fois de plus la loi de Poisson. Le lien utilisé est le lien logarithmique. On rappelle qu'on utilise encore une régression polynomiale de degré 7 sur l'âge.
 
 L'avantage de la régression régularisée *Lasso* est que la sélection des variables explicatives est fait pour nous. La fonction *Score* de la régression est :
 
@@ -157,7 +157,7 @@ $$ S^{Lasso}(\beta) = -l(\beta)/n + \lambda  \sum_{j = 1}^p | \beta_j|. $$
 
 Le vecteur $\beta$ est le vecteur de paramètres qui sera estimé par maximum de vraisemblance. La fonction $l(\beta)$ est la fonction de log-vraisemblance. La variable $n$ est le nombre d'observations dans l'échantillon d’entraînement et la variable $p$ est le nombre de variables explicatives.
 
-Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi par validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la déviance de Poisson moyenne de la validation croisée. Sa valeur est de `r meilleur.lam.lasso`. La figure 1 ci-dessous montre la valeur de la déviance moyenne en fonction de l'hyperparamètre $\lambda$; la valeur qui minimise la déviance est sélectionnée. On voit avec la figure 1 que la régression ne semble pas très utile (la courbe semble croissante et monotone).
+Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi à l'aide d'une validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la moyenne de la déviance par observation trouvée par validation croisée. Sa valeur est `r meilleur.lam.lasso`. La figure 1 ci-dessous montre la valeur de la déviance moyenne en fonction de l'hyperparamètre $\lambda$. La valeur qui minimise la déviance est sélectionnée. On voit avec la figure 1 que la régression ne semble pas très utile, puisque la courbe semble croissante et monotone.
 
 ```{r fig_lam_lasso, fig.cap="Optimisation de de l'hyperparamètre lambda (Lasso)", fig.align = "center", fig.height=3.6}
 ggplot(mapping = aes(x=log(cv.out$lambda), y=cv.out$cvm)) + geom_point() + geom_line() + theme_bw() +
@@ -228,23 +228,24 @@ prev_test.knn <- fit_knn_test$pred * test$Expp + 1E-4
 deviance.knn <- dev.pois(prev_test.knn, test.knn$Numtppd)
 ```
 
-Ici on construit le modèle des k plus proches voisins. Nous devons nous limitez aux variables numériques pour construire ce modèle, on ne s'attend donc pas à avoir le meilleur modèle.
+Ici, on construit le modèle des k plus proches voisins. Nous devons nous limiter aux variables numériques pour construire ce modèle, on ne s'attend donc pas à avoir le meilleur modèle.
 
-Pour gérer l’exposition on utilise le ratio $N / t$ comme variable réponse. La prévision du modèle est donc une prévision pour une exposition de 1.
+Pour gérer l’exposition au risque, on utilise le ratio $\frac{N}{t}$ comme variable réponse. Le modèle fait une prévision pour une exposition de 1. Il suffit de multiplier par l'exposition réelle afin de trouver la prévision finale.
 
-Le modèle comporte un seul hyperparamètre, soit le k qui représente le nombre de voisins utilisés pour calculer les prévisions. Pour ce faire, on utilise la procédure suivante :
+Le modèle comporte un seul hyperparamètre, soit le $k$ qui représente le nombre de voisins utilisés pour calculer les prévisions. Pour ce faire, on utilise la procédure suivante :
 
-1.  Créer un échantillon de validation de manière aléatoire avec 30 % des données entrainement.
+1.  Créer un échantillon de validation de manière aléatoire avec 30 % de l'échantillon d'entrainement.
 
-2.  Faire les prévisions sur chaque observation de l'échantillon de validation et ce, avec tous les valeurs de k testées. Note : on utilise un léger biais de 1E-4 pour éviter les prévisions de 0.
+2.  Faire les prévisions sur chaque observation de l'échantillon de validation, et ce, avec toutes les valeurs de $k$ testées. 
+Note : on utilise un léger biais de 1E-4 pour éviter les prévisions de 0.
 
-3.  Calculer la déviance Poisson de l'échantillon de validation pour tout les valeurs de k.
+3.  Calculer la déviance Poisson de l'échantillon de validation pour toutes les valeurs de $k$.
 
 4.  Répéter 30 fois les étapes 1 à 3.
 
-5.  Utiliser la valeur de k qui minimise la valeur de la déviance moyenne (voir graphique 2).
+5.  Utiliser la valeur de $k$ qui minimise la déviance moyenne (voir graphique 2).
 
-Avec le graphique 2 on voit très clairement que la valeur optimale de k est 95.
+À l'aide du graphique 2, on voit très clairement que la valeur optimale pour le $k$ est 95.
 
 ```{r fig_knn, fig.cap="Optimisation de de l'hyperparamètre k (knn)", fig.align = "center", fig.height=3.6}
 ggplot(mapping = aes(x=k, y=colMeans(resultats.knn))) + geom_point() + 
