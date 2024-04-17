@@ -23,8 +23,8 @@ knitr::opts_chunk$set(echo = FALSE, cache = TRUE, message = FALSE, warning = FAL
 ```{r paquetages, message=FALSE, warning=FALSE, eval=TRUE, include=FALSE, echo = FALSE}
 ### Liste des paquetages
 liste.paquetage <- c("ggplot2", "FactoMineR", "pls", "mice", "car", "MASS",
-                     "glmnet", "caret", "FNN", "dplyr", "rpart", "rpart.plot", "tidyverse",
-                     "Matrix", "data.table")
+                     "glmnet", "caret", "FNN", "dplyr", "rpart",
+                     "rpart.plot","tidyverse", "Matrix", "data.table")
 
 ### On installe les paquetages de la liste qu'on a pas déjà
 inst <- liste.paquetage %in% installed.packages()
@@ -106,7 +106,7 @@ Après avoir séparé les données en deux échantillons : `train` (85 % des don
 
 En revanche, le modèle choisi est le modèle de Poisson. On fait ce choix, car ce modèle est le plus simple ce qui est idéale pour un modèle de base. Le modèle est donc un GLM Poisson avec fonction de lien logarithmique.
 
-Avec notre rapport 1 on a vu qu'il pourrait être intéressant d'utilises la variable âge jusqu'au degré 7 (âge, âge$^2, \dots$, âge$^7$). En fait, cette technique semble effectivement efficace, puisqu'après la sélection de variable, on conserve les 7 variables. Pour la sélection des variables, on a fait une analyse de déviance au seuil de confiance 99 % en utilisant la méthode algorithmique *Backward*. C'est donc un modèle simple, mais celui-ci demeure un référence fiable pour la suite.
+Avec notre rapport 1 on a vu qu'il pourrait être intéressant d’utiliser la variable âge jusqu'au degré 7 (âge, âge$^2, \dots$, âge$^7$). À première vue, cette technique semble effectivement efficace, puisqu'après la sélection de variable, on conserve les 7 variables. Pour la sélection des variables, on a fait une analyse de déviance au seuil de confiance 99 % en utilisant la méthode algorithmique *Backward*. C'est donc un modèle simple, mais celui-ci demeure un référence fiable pour la suite.
 
 # Ajustement des modèles
 
@@ -157,7 +157,7 @@ $$ S^{Lasso}(\beta) = -l(\beta)/n + \lambda  \sum_{j = 1}^p | \beta_j|. $$
 
 Le vecteur $\beta$ est le vecteur de paramètres qui sera estimé par maximum de vraisemblance. La fonction $l(\beta)$ est la fonction de log-vraisemblance. La variable $n$ est le nombre d'observations dans l'échantillon d’entraînement et la variable $p$ est le nombre de variables explicatives.
 
-Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi par validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la déviance de Poisson moyenne de la validation croisée. Sa valeur est de `r meilleur.lam.lasso`. La figure ci-dessous montre comment cette valeur est sélectionnée.
+Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi par validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la déviance de Poisson moyenne de la validation croisée. Sa valeur est de `r meilleur.lam.lasso`. La figure 1 ci-dessous montre la valeur de la déviance moyenne en fonction de l'hyperparamètre $\lambda$; la valeur qui minimise la déviance est sélectionnée. On voit avec la figure 1 que la régression ne semble pas très utile (la courbe semble croissante et monotone).
 
 ```{r fig_lam_lasso, fig.cap="Optimisation de de l'hyperparamètre lambda (Lasso)", fig.align = "center", fig.height=3.6}
 ggplot(mapping = aes(x=log(cv.out$lambda), y=cv.out$cvm)) + geom_point() + geom_line() + theme_bw() +
@@ -227,6 +227,24 @@ fit_knn_test <- knn.reg(
 prev_test.knn <- fit_knn_test$pred * test$Expp + 1E-4
 deviance.knn <- dev.pois(prev_test.knn, test.knn$Numtppd)
 ```
+
+Ici on construit le modèle des k plus proches voisins. Nous devons nous limitez aux variables numériques pour construire ce modèle, on ne s'attend donc pas à avoir le meilleur modèle.
+
+Pour gérer l’exposition on utilise le ratio $N / t$ comme variable réponse. La prévision du modèle est donc une prévision pour une exposition de 1.
+
+Le modèle comporte un seul hyperparamètre, soit le k qui représente le nombre de voisins utilisés pour calculer les prévisions. Pour ce faire, on utilise la procédure suivante :
+
+1.  Créer un échantillon de validation de manière aléatoire avec 30 % des données entrainement.
+
+2.  Faire les prévisions sur chaque observation de l'échantillon de validation et ce, avec tous les valeurs de k testées. Note : on utilise un léger biais de 1E-4 pour éviter les prévisions de 0.
+
+3.   Calculer la déviance Poisson de l'échantillon de validation pour tout les valeurs de k.
+
+4.  Répéter 30 fois les étapes 1 à 3.
+
+5.  Utiliser la valeur de k qui minimise la valeur de la déviance moyenne (voir graphique 2).
+
+Avec le graphique 2 on voit très clairement que la valeur optimale de k est 95.
 
 ```{r fig_knn, fig.cap="Optimisation de de l'hyperparamètre k (knn)", fig.align = "center", fig.height=3.6}
 ggplot(mapping = aes(x=k, y=colMeans(resultats.knn))) + geom_point() + 
