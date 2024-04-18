@@ -159,7 +159,7 @@ Le vecteur $\beta$ est le vecteur de paramètres qui sera estimé par maximum de
 
 Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi à l'aide d'une validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la moyenne de la déviance par observation trouvée par validation croisée. Sa valeur est `r meilleur.lam.lasso`. La figure 1 ci-dessous montre la valeur de la déviance moyenne en fonction de l'hyperparamètre $\lambda$. La valeur qui minimise la déviance est sélectionnée. On voit avec la figure 1 que la régression ne semble pas très utile, puisque la courbe semble croissante et monotone.
 
-```{r fig_lam_lasso, fig.cap="Optimisation de de l'hyperparamètre lambda (Lasso)", fig.align = "center", fig.height=3.6}
+```{r fig_lam_lasso, fig.cap="Optimisation de de l'hyperparamètre lambda (Lasso)", fig.align = "center", fig.height=4}
 ggplot(mapping = aes(x=log(cv.out$lambda), y=cv.out$cvm)) + geom_point() + geom_line() + theme_bw() +
     labs(title="Déviance moyenne en fonction de lambda (Lasso)",
          x="log(lambda)", y="Déviance moyenne")
@@ -246,7 +246,7 @@ Le modèle comporte un seul hyperparamètre, soit le $k$ qui représente le nomb
 
 À l'aide du graphique 2, on voit très clairement que la valeur optimale pour le $k$ est 95.
 
-```{r fig_knn, fig.cap="Optimisation de de l'hyperparamètre k (knn)", fig.align = "center", fig.height=3.6}
+```{r fig_knn, fig.cap="Optimisation de de l'hyperparamètre k (knn)", fig.align = "center", fig.height=4}
 ggplot(mapping = aes(x=k, y=colMeans(resultats.knn))) + geom_point() + 
      geom_point(aes(x=k[which.min(colMeans(resultats.knn))]),
                y=min(colMeans(resultats.knn)), size=4, col="orange", alpha=0.6)+
@@ -289,7 +289,7 @@ On utilise un nombre d'observations par feuille minimal de 85. Cette valeur choi
 
 On procède par une validation croisée à 10 plis afin de trouver la valeur idéale du cp. On choisit le cp qui donne la plus petite déviance moyenne de la validation croisée. La valeur idéale trouvée est `r cp.pois`. Avec cette valeur, on peut obtenir l'arbre final. Le graphique 3 permet d'illustrer le processus d'optimisation de l'hyperparamètre.
 
-```{r fig_cp_arbre, fig.cap="Optimisation de de l'hyperparamètre cp (arbre)", fig.align = "center", fig.height=3.6}
+```{r fig_cp_arbre, fig.cap="Optimisation de de l'hyperparamètre cp (arbre)", fig.align = "center", fig.height=4}
 plotcp(arbre, upper = "none", col = "orange", lty = 1, pch=16, cex=0.5, ylim=c(0.8, 0.9), main="Erreur relative de la validation croisée en fonction du cp")
 ```
 
@@ -369,7 +369,7 @@ On construit ici un modèle de *bagging*. La fonction de perte utilisée est enc
 
 Deux hyperparamètres sont à optimiser soit le nombre d'observations minimal par feuille et le nombre d'arbres utilisées. Pour l'optimisation du nombre minimal d'observations par feuille (*minbucket*), on a entrainé différents modèles identiques, mais avec une valeur de *minbucket* différente allant de 0 à 225 avec des bonds de 25. Pour tous ces modèles, on utilise 200 arbres. Le *minbucket* choisi est celui qui optimise la déviance moyenne des observations hors échantillon (OOB). Le graphique 4 illustre le processus d'optimisation. La valeur choisie est de 100 tel qu'illustrée par le graphique. Le choix de prendre 200 arbres a été vérifié graphiquement avec l'erreur OOB en fonction du nombre d'arbres.
 
-```{r fig_minb_bag, fig.cap="Optimisation de l'hyperparamètre minbucket (bagging)", fig.align = "center", fig.height=3.6}
+```{r fig_minb_bag, fig.cap="Optimisation de l'hyperparamètre minbucket (bagging)", fig.align = "center", fig.height=4}
 ggplot(mapping = aes(x=minb[-1], y=resultats.bag[-1])) +
     geom_point() + geom_line() +
     geom_point(aes(x=minb[which.min(resultats.bag)]),
@@ -502,7 +502,7 @@ Le graphique 5 permet de visualiser le processus. On voit sur le graphique que l
 
 On finit la modélisation en ré-entraînant le modèle avec les hyperparamètres optimaux et on choisit un nombre d'arbres de 150 pour être sûr d'en avoir suffisamment.
 
-```{r fig_optim_foret, fig.cap="Optimisation des hyperparamètres m et minbucket (RF)", fig.align = "center", fig.height=3.6}
+```{r fig_optim_foret, fig.cap="Optimisation des hyperparamètres m et minbucket (RF)", fig.align = "center", fig.height=4}
 ggplot(resultats.foret, mapping = aes(x=ncand, y=Erreur, col=minb)) +
     geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) + theme_bw() + theme(legend.position = "bottom") +
     scale_x_continuous(breaks = seq(min(resultats.foret$ncand), max(resultats.foret$ncand), by = 1))+
@@ -549,39 +549,102 @@ Pour choisir la meilleure combinaison, on utilise la procédure suivante :
 On peut étudier les résultats dans le graphique 6 où il est possible de voir que la meilleure combinaison de *max.depth* et *bag.fraction* est de 3 et 0.65. Le nombre d'itérations optimal pour cette combinaison est 6873.
 
 ```{r}
+set.seed(201)
+valid_idx <- sample(85000, 15000)
+nbTrees <- c(
+    2000, 2000,
+    1750, 1750,
+    1500, 1500,
+    1000, 1000,
+    750, 750)
 
-# mod.boost <- gbm(
-#     Numtppd ~.-Expp + offset(I(log(Expp))), 
-#     data = train.dat, 
-#     distribution = "poisson", 
-#     n.trees = 7000, 
-#     shrinkage = 0.01, 
-#     interaction.depth = 3, 
-#     bag.fraction = 0.65, 
-#     n.minobsinnode = 100, 
-#     verbose = FALSE,
-#     cv.folds = 5) 
+# Valeurs à tester
+max.depth <- c(1, 2, 3, 4, 5)
+bag.fraction <- c(0.5, 0.75)
+
+# # initier la boucle
+# resultats.boost <- data.frame()
+# 
+# idx <- 0
+# for(j in max.depth){
+#     
+#     for(i in bag.fraction){
+#         
+#         idx <- idx + 1
+#         
+#         gbm_mtpl <- gbm(
+#             Numtppd ~.-Expp, 
+#             data = train.dat[-valid_idx,], 
+#             distribution = "poisson",
+#             weights = Expp,
+#             n.trees = nbTrees[idx], 
+#             shrinkage = 0.05, 
+#             interaction.depth = j, 
+#             bag.fraction = i, 
+#             n.minobsinnode = 100, 
+#             verbose = TRUE, 
+#             cv.folds = 5) 
+#           
+#         # Arbres
+#         best.iter.cv <- gbm.perf(gbm_mtpl, method = "cv")
+#         
+#         # Prev
+#         prev <- predict(gbm_mtpl, newdata = train.dat[valid_idx,],
+#                         n.trees = best.iter.cv,
+#                       type = "response")*train.dat[valid_idx, "Expp"]
+#         dev <- dev.pois(prev, train.dat[valid_idx, 11])
+#         
+#         # Results
+#         resultats.boost[idx, "dev"] <- dev
+#         resultats.boost[idx, "depth"] <- j
+#         resultats.boost[idx, "bag.frac"] <- i
+#         resultats.boost[idx, "iter"] <- best.iter.cv
+#     }
+# }
 ```
 
 ```{r}
-# saveRDS(
-#     list(
-#         mod.boost=mod.boost
-#     ), "boost"
-# )
-mod.boost <- readRDS("boost")$mod.boost
+# idx <- which.min(resultats.boost[, "dev"])
+# mod.boost <- gbm(
+#             Numtppd ~.-Expp, 
+#             data = train.dat[-valid_idx,], 
+#             distribution = "poisson",
+#             weights = Expp,
+#             n.trees = 2250, 
+#             shrinkage = 0.05, 
+#             interaction.depth = resultats.boost[idx, "depth"], 
+#             bag.fraction = resultats.boost[idx, "bag.frac"], 
+#             n.minobsinnode = 100, 
+#             verbose = TRUE, 
+#             cv.folds = 5)
+# best.iter.cv <- gbm.perf(mod.boost, method = "cv")
 ```
 
-```{r warning=FALSE, message=FALSE}
-resultats.boost <- data.frame(
-  dev = c(7505.349, 7497.359, 7498.229, 7515.664, 7508.734, 7510.15, 7522.524, 7516.784, 7520.214, 7530.023, 7529.926, 7526.136, 7542.498, 7532.378, 7536.299),
-  interaction.depth = c(3, 3, 3, 4, 4, 4, 5, 5, 5, 7, 7, 7, 9, 9, 9),
-  bag.fraction = c(0.5, 0.65, 0.8, 0.5, 0.65, 0.8, 0.5, 0.65, 0.8, 0.5, 0.65, 0.8, 0.5, 0.65, 0.8),
-  best.iter.cv = c(7438, 6873, 7413, 6070, 5554, 5797, 4794, 5341, 4528, 2953, 3553, 3561, 2911, 2540, 2967)
+```{r}
+saveRDS(
+    list(
+        resultats.boost=resultats.boost,
+        mod.boost=mod.boost,
+        best.iter.cv=best.iter.cv
+    ), "boost"
 )
 
-prev_test.boost <- predict(mod.boost, newdata = test,type = "response")
+boost <- readRDS("boost")
+mod.boost <- boost$mod.boost
+resultats.boost <- boost$resultats.boost
+best.iter.cv <- boost$best.iter.cv
+
+prev_test.boost <- predict(mod.boost, newdata = test,type = "response",
+                           n.trees=best.iter.cv) * test$Expp
 deviance.boost <- dev.pois(prev_test.boost, test$Numtppd)
+```
+
+```{r fig_optim_boost, fig.cap="Optimisation des hyperparamètres max.depth et bag.fractions (boosting)", fig.align = "center", fig.height=4}
+ggplot(resultats.boost, mapping = aes(x=depth, y=dev, col=factor(bag.frac))) +
+    geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) +
+    theme_bw() + theme(legend.position = "bottom") +
+    labs(title = "", x="",
+         y="", col="")
 ```
 
 # Comparaison des modèles
@@ -670,7 +733,7 @@ double_lift <- function(actual, ref, pred, mod.names, k=4, w){
             name="Ratio",
             sec.axis = sec_axis(~.*scale, name = "EU", )) +
         labs(title = "Comp Mod LIFT", x="Groupe", col="Modèle") + 
-        theme_bw() + coord_cartesian(ylim=c(0.35, 1.65))+
+        theme_bw() + coord_cartesian(ylim=c(0.4, 1.6))+
         theme(legend.position = "bottom")
     p
 }
@@ -681,7 +744,8 @@ library(gridExtra)
 double_lift(actual = test$Numtppd, ref = prev_test.base,
             pred = list(prev_test.lasso, prev_test.boost, prev_test.foret,
                         prev_test.knn, prev_test.arbre, prev_test.bag),
-            mod.names = c("GLM", "Lasso", "Boosting", "RF", "knn", "arbre", "Bagging"),
+            mod.names = c("GLM", "Lasso", "Boosting", "RF",
+                          "knn", "arbre", "Bagging"),
             k=5, w = test$Expp)
 ```
 
