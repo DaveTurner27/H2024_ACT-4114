@@ -23,7 +23,7 @@ knitr::opts_chunk$set(echo = FALSE, cache = TRUE, message = FALSE, warning = FAL
 ```{r paquetages, message=FALSE, warning=FALSE, eval=TRUE, include=FALSE, echo = FALSE}
 ### Liste des paquetages
 liste.paquetage <- c("ggplot2", "FactoMineR", "pls", "mice", "car", "MASS",
-                     "glmnet", "caret", "FNN", "dplyr", "rpart",
+                     "glmnet", "caret", "FNN", "dplyr", "rpart", "gbm",
                      "rpart.plot","tidyverse", "Matrix", "data.table")
 
 ### On installe les paquetages de la liste qu'on a pas déjà
@@ -87,8 +87,8 @@ Dans ce rapport on présentera d'abord un modèle de base (GLM). Ensuite, on par
 
 ```{r base_mod}
 formula_base <- formula(
-    Numtppd ~ Gender + Type + Occupation +I(log(Age)^2)+I(log(Age)^3)+
-        I(log(Age)^4) + I(log(Age)^5) + I(log(Age)^6) + I(log(Age)^7)+
+    Numtppd ~ Gender + Type + Occupation +Age+I(Age^2)+I(Age^3)+
+        I(Age^4) + I(Age^5) + I(Age^6) + I(Age^7)+
         Bonus + Poldur + Density + Region + log(Power) +
         offset(I(log(Expp)))
 )
@@ -113,9 +113,9 @@ Avec notre premier rapport, on a vu qu'il pourrait être intéressant d’utilis
 
 ```{r Lasso, message=FALSE, warning=TRUE}
 # Mod sans reg
-mod.complet <- glm(Numtppd ~.+I(log(Age)^2)+I(log(Age)^3)+I(log(Age)^4)+
-                       I(log(Age)^5)+I(log(Age)^6)+
-                       I(log(Age)^7)-Expp-Power+I(log(Power)),
+mod.complet <- glm(Numtppd ~.+I(Age^2)+I(Age^3)+
+                   I(Age^4) + I(Age^5) + I(Age^6) +
+                   I(Age^7)-Expp-Power-Is_18+I(log(Power)),
                    family = poisson, data = train.dat)
 
 # Data
@@ -123,11 +123,11 @@ x.train <- model.matrix(mod.complet, data = train.dat)[, -1]
 y.train <- train.dat$Numtppd
 x.test <- model.matrix(mod.complet, data = test)[, -1]
 
-# lambda
+# # lambda
 # set.seed(111)
 # cv.out <- cv.glmnet(
 #     x.train, y.train, offset = I(log(train.dat$Expp)),
-#     alpha = 1, nfolds = 10, family = "poisson", 
+#     alpha = 1, nfolds = 10, family = "poisson",
 # )
 # meilleur.lam.lasso <- cv.out$lambda.min
 # mod.lasso <- glmnet(x.train, y.train, family = "poisson",
@@ -236,8 +236,7 @@ Le modèle comporte un seul hyperparamètre, soit le $k$ qui représente le nomb
 
 1.  Créer un échantillon de validation de manière aléatoire avec 30 % de l'échantillon d'entrainement.
 
-2.  Faire les prévisions sur chaque observation de l'échantillon de validation, et ce, avec toutes les valeurs de $k$ testées. 
-Note : on utilise un léger biais de 1E-4 pour éviter les prévisions de 0.
+2.  Faire les prévisions sur chaque observation de l'échantillon de validation, et ce, avec toutes les valeurs de $k$ testées. Note : on utilise un léger biais de 1E-4 pour éviter les prévisions de 0.
 
 3.  Calculer la déviance Poisson de l'échantillon de validation pour toutes les valeurs de $k$.
 
@@ -550,6 +549,30 @@ Pour choisir la meilleure combinaison, on utilise la procédure suivante :
 On peut étudier les résultats dans le graphique 6 où il est possible de voir que la meilleure combinaison de *max.depth* et *bag.fraction* est de 3 et 0.65. Le nombre d'itérations optimal pour cette combinaison est 6873.
 
 ```{r}
+
+# mod.boost <- gbm(
+#     Numtppd ~.-Expp + offset(I(log(Expp))), 
+#     data = train.dat, 
+#     distribution = "poisson", 
+#     n.trees = 7000, 
+#     shrinkage = 0.01, 
+#     interaction.depth = 3, 
+#     bag.fraction = 0.65, 
+#     n.minobsinnode = 100, 
+#     verbose = FALSE,
+#     cv.folds = 5) 
+```
+
+```{r}
+# saveRDS(
+#     list(
+#         mod.boost=mod.boost
+#     ), "boost"
+# )
+mod.boost <- readRDS("boost")$mod.boost
+```
+
+```{r warning=FALSE, message=FALSE}
 resultats.boost <- data.frame(
   dev = c(7505.349, 7497.359, 7498.229, 7515.664, 7508.734, 7510.15, 7522.524, 7516.784, 7520.214, 7530.023, 7529.926, 7526.136, 7542.498, 7532.378, 7536.299),
   interaction.depth = c(3, 3, 3, 4, 4, 4, 5, 5, 5, 7, 7, 7, 9, 9, 9),
@@ -557,10 +580,13 @@ resultats.boost <- data.frame(
   best.iter.cv = c(7438, 6873, 7413, 6070, 5554, 5797, 4794, 5341, 4528, 2953, 3553, 3561, 2911, 2540, 2967)
 )
 
-# mod.boost <- 
+prev_test.boost <- predict(mod.boost, newdata = test,type = "response")
+deviance.boost <- dev.pois(prev_test.boost, test$Numtppd)
 ```
 
 # Comparaison des modèles
+
+Dans cette section, on compare les modèles afin de choisir les deux plus performant pour la suite. La métrique de choix pour notre situation est la déviance Poisson. On présente donc dans la table 1 la déviance Poisson des différents modèles sur les données `test` qui n'ont pas servi à l'entraînement. Ce que la table nous indique est que les meilleurs modèles sont : le modèle de base, le modèle *Lasso* et le modèle de *boosting*. Les autres modèles sembles nettement moins performants que ces trois deniers si on se fie à la métrique de déviance.
 
 ```{r table deviance}
 dev.df <- data.frame(
@@ -575,85 +601,88 @@ dev.df <- data.frame(
         deviance.foret, deviance.boost)
 )
 dev.df <- dev.df[order(dev.df$Déviance), ]
-knitr::kable(dev.df, format = "markdown", digits = 0, row.names = FALSE, align = "c", 
-             label = "Déviance Poisson des modèle sur l'échantillon Test")
-```
-
-```{r fonctions_graphs}
-
-# double lift curve graph
-double_lift <- function(actual, ref, pred, mod.names=c("REF", "PRED"), k=4){
-
-    # Préparation
-    idx.order <- order(pred/ref)
-    n <- length(ref)
-    # normalisé
-    ref <- ref * mean(actual) / mean(ref)
-    pred <- pred * mean(actual) / mean(pred)
-
-    # Sort
-    ref <- ref[idx.order]
-    pred <- pred[idx.order]
-    actual <- actual[idx.order]
-    data <- data.frame(
-        FIGURE=c(ref, pred),
-        Model=as.factor(c(rep(mod.names[1], n), rep(mod.names[2], n)))
-    )
-
-    # Cut
-    data$GROUPE <- rep(cut(1:n, k, labels = F), 2)
-
-    # LR
-    sum_actual <- sapply(split(actual, cut(1:n, k, labels = F)), sum)
-    data <- data %>%
-        group_by(Model, GROUPE) %>%
-        summarise(LR = sum(FIGURE))
-    data$LR <- sum_actual / data$LR
-
-    # Graphique
-    p <- ggplot(data, aes(x=GROUPE, y=LR, col=Model)) +
-        geom_point(size=2.25) + geom_line(linewidth=1) +
-        geom_hline(yintercept = 1, linewidth=0.3, col="black", alpha=0.4)+
-        labs(title = "", y="Ratio", x="Groupe") + theme_bw()
-    print(p)
-}
-
-impact_analysis <- function(actual, ref, pred, mod.names=c("REF", "PRED"), k=4){
-
-    # Préparation
-    idx.order <- order(ref)
-    n <- length(ref)
-    # normalisé
-    ref <- ref * mean(actual) / mean(ref)
-    pred <- pred * mean(actual) / mean(pred)
-
-    # Sort
-    ref <- ref[idx.order]
-    pred <- pred[idx.order]
-    actual <- actual[idx.order]
-    data <- data.frame(
-        FIGURE=c(ref, pred, actual),
-        Model=as.factor(c(rep(mod.names[1], n), rep(mod.names[2], n), rep("Vraie valeur", n)))
-    )
-
-    # Cut
-    data$GROUPE <- rep(cut(1:n, k, labels = F), 3)
-
-    # Moyenne
-    data <- data %>%
-        group_by(Model, GROUPE) %>%
-        summarise(MOYENNE = mean(FIGURE))
-
-    # Graphique
-    p <- ggplot(data, aes(x=GROUPE, y=MOYENNE, col=Model)) +
-        geom_point(size=2.25) + geom_line(linewidth=1) + labs(title = "Impact analysis", y="Moyene de sinistre", x="Group") + theme_bw()
-    print(p)
-}
+knitr::kable(dev.df, format = "markdown", digits = 0, row.names = FALSE, align = "c",
+             caption = "Déviance Poisson des modèles sur l'échantillon Test")
 ```
 
 ```{r}
-double_lift(actual = test$Numtppd, ref = prev_test.base, pred = prev_test.arbre, mod.names = c("GLM", "Arbre"), k=5)
-impact_analysis(actual = test$Numtppd, ref = prev_test.base, pred = prev_test.arbre, mod.names = c("GLM", "Arbre"), k=5)
+df <- cbind(
+    prev_test.base, unlist(prev_test.lasso), prev_test.boost,
+    prev_test.foret, prev_test.bag, prev_test.arbre, prev_test.knn
+)
+colnames(df)[2] <- "prev_test.lasso"
+round(cor(df), 2)
+```
+
+```{r}
+
+# double lift curve graph
+double_lift <- function(actual, ref, pred, mod.names, k=4, w){
+    
+    df <- data.frame()
+    idx <- 1
+    n <- length(ref)
+    
+    for(p in pred){
+        
+        idx <- idx + 1
+        p <- unlist(p)
+        r <- unlist(ref)
+        
+        # Préparation
+        idx.order <- order(p/r)
+        scale <- sum(w) / k * 0.75 
+    
+        # Sort
+        r <- r[idx.order]
+        p <- p[idx.order]
+        a <- actual[idx.order]
+        data <- data.frame(
+            FIGURE=c(r, p),
+            Model=as.factor(c(rep(mod.names[1], n), rep(mod.names[idx], n))),
+            w=rep(w, 2)
+        )
+    
+        # Cut
+        data$GROUPE <- rep(cut(1:n, k, labels = F), 2)
+    
+        # LR
+        sum_actual <- sapply(split(a, cut(1:n, k, labels = F)), sum)
+        data <- data %>%
+            group_by(Model, GROUPE) %>%
+            summarise(LR = sum(FIGURE), EU=sum(w))
+        data$LR <- sum_actual / data$LR
+        data$WHICH_MODEL <- rep(mod.names[idx], nrow(data))
+        
+        # Bind
+        df <- rbind(df, data)
+    }
+    df$WHICH_MODEL <- factor(df$WHICH_MODEL) 
+
+    # Graphique
+    p <- ggplot(df) + facet_wrap(~WHICH_MODEL, ncol = 3)+
+        geom_point(aes(x=GROUPE, y=LR, col=Model), size=2.5) +
+        geom_line(aes(x=GROUPE, y=LR, col=Model), linewidth=1) +
+        geom_hline(yintercept = 1, linewidth=0.4, col="black", alpha=0.65)+
+        geom_bar(stat="identity", aes(x = GROUPE,  y=EU/scale),
+                 fill="grey", width=0.6, alpha=0.175, position = "dodge") +
+        scale_y_continuous(
+            name="Ratio",
+            sec.axis = sec_axis(~.*scale, name = "EU", )) +
+        labs(title = "Comp Mod LIFT", x="Groupe", col="Modèle") + 
+        theme_bw() + coord_cartesian(ylim=c(0.35, 1.65))+
+        theme(legend.position = "bottom")
+    p
+}
+```
+
+```{r, fig.cap="Comparaison des modèles", fig.align = "center"}
+library(gridExtra)
+double_lift(actual = test$Numtppd, ref = prev_test.base,
+            pred = list(prev_test.lasso, prev_test.boost, prev_test.foret,
+                        prev_test.knn, prev_test.arbre, prev_test.bag),
+            mod.names = c("GLM", "Lasso", "Boosting", "RF", "knn", "arbre", "Bagging"),
+            k=5, w = test$Expp)
 ```
 
 # Interprétation des meilleurs modèles
