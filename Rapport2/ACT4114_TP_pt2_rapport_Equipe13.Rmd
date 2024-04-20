@@ -77,11 +77,11 @@ Plusieurs modèles seront étudiés pour modéliser la variable réponse :
 
 En ce qui concerne le jeu de données, il est disponible directement en `R` dans le paquetage `CASdatasets`. Plus précisément, il s'agit du jeu de données `pg15training`. Les données ont été utilisées par l'Institut française des actuaires dans un concours/jeu de tarification. Elles proviennent d'assureurs automobiles privés inconnus. La matrice contient 2 ans d'observations (2009 et 2010) avec 50 000 observations dans chacune de ces deux années.
 
-Pour plus d'information sur les données, il est possible d'aller voir la documentation sur CRAN ou bien simplement de faire la commande suivante en `R` : `help(pg15train.dating)`.
+Pour plus d'information sur les données, il est possible d'aller voir la documentation sur CRAN ou de faire la commande suivante en `R` : `help(pg15train.dating)`.
 
-À noter que des modifications ont été faites sur le jeu de données, celles-cis sont documentées dans le premier rapport (Analyse préparatoire).
+À noter que des modifications ont été faites sur le jeu de données, celles-ci sont documentées dans le premier rapport (Analyse préparatoire).
 
-Dans ce rapport on présentera d'abord un modèle de base (GLM). Ensuite, on parlera des autres modèles étudiés en détaillant la procédure utilisée pour les ajuster. Par la suite, tous les modèles étudiées seront comparer. On interprétera ensuite les deux modèles les plus prometteurs. Enfin, on proposera un choix de modèle finale. Les lecteurs intéressés par la recommandation finale peuvent passer directement à la section conclusion.
+Dans ce rapport, on présentera d'abord un modèle de base (GLM). Ensuite, on parlera des autres modèles étudiés en détaillant la procédure utilisée pour les ajuster. Par la suite, tous les modèles étudiés seront comparés. On interprétera ensuite les deux modèles les plus prometteurs. Enfin, on proposera un choix de modèle final. Les lecteurs intéressés par la recommandation finale peuvent passer directement à la section conclusion.
 
 # Modèle de base
 
@@ -101,11 +101,11 @@ prev_test.base <- predict(mod.base, newdata=test, type="response")
 deviance.base <- dev.pois(prev_test.base, test$Numtppd)
 ```
 
-Après avoir séparé les données en deux échantillons soit `train` (85 % des données) et `test` (15 % des données), on est prêt à construire le modèle de base. On fait face à un problème de régression avec une variable réponse discrète. La loi de Poisson, la loi Binomiale Négative et la de Poisson gonflée à zéro sont toutes des possibilités pour construire un modèle linéaire généralisé sur des données de comptages.
+Après avoir séparé les données en deux échantillons soit `train` (85 % des données) et `test` (15 % des données), on est prêt à construire le modèle de base. On fait face à un problème de régression avec une variable réponse discrète. La loi de Poisson, la loi Binomiale Négative et la loi Poisson gonflée à zéro sont toutes des possibilités pour construire un modèle linéaire généralisé sur des données de comptage.
 
 Dans notre cas, le modèle choisi est le modèle Poisson, car c'est le choix le plus simple pour un modèle de base. Le modèle est donc un GLM Poisson avec fonction de lien logarithmique.
 
-Avec notre premier rapport, on a vu qu'il pourrait être intéressant d’utiliser la variable `age` jusqu'au degré 7 (âge, âge$^2, \dots$, âge$^7$). Cela veut dire que la relation entre la variable `age` et notre variable réponse est complexe. Pour mieux l'expliquer, on vient donc utiliser un polynôme de degré 7. À première vue, cette technique semble effectivement efficace, puisqu'après la sélection de variables, on conserve les 7 variables reliées à l'age. Pour sélectionner nos variables, on a fait une analyse de déviance au seuil de confiance 99 % en utilisant la méthode algorithmique *Backward*. C'est donc un modèle simple, mais qui demeure une référence fiable pour la suite.
+Avec notre premier rapport, on a vu qu'il pourrait être intéressant d’utiliser la variable `age` jusqu'au degré 7 (âge, âge$^2, \dots$, âge$^7$). Cela veut dire que la relation entre la variable `age` et notre variable réponse est complexe. Pour mieux l'expliquer, on vient donc utiliser un polynôme de degré 7. À première vue, cette technique semble en effet efficace, puisqu'après la sélection des variables, on conserve les 7 qui sont reliées à l'âge. Pour sélectionner nos variables, on a fait une analyse de déviance au seuil de confiance 99 % en utilisant la méthode algorithmique *Backward*. C'est donc un modèle simple, mais qui demeure une référence fiable pour la suite.
 
 # Ajustement des modèles
 
@@ -151,22 +151,22 @@ deviance.lasso <- dev.pois(prev_test.lasso, test$Numtppd)
 
 Ici, on construit un modèle de régression régularisée *Lasso*. La distribution utilisée est une fois de plus la loi de Poisson. Le lien utilisé est le lien logarithmique. On rappelle qu'on utilise encore une régression polynomiale de degré 7 sur l'âge.
 
-L'avantage de la régression régularisée *Lasso* est que la sélection des variables explicatives est fait pour nous. La fonction *Score* de la régression est :
+L'avantage de la régression régularisée *Lasso* est que la sélection des variables explicatives est faite pour nous. La fonction *Score* de la régression est :
 
-$$ S^{Lasso}(\beta) = -l(\beta)/n + \lambda  \sum_{j = 1}^p | \beta_j|. $$
+$$ S^{Lasso}(\beta) = \frac{-l(\beta)}{n} + \lambda  \sum_{j = 1}^p | \beta_j|. $$
 
 Le vecteur $\beta$ est le vecteur de paramètres qui sera estimé par maximum de vraisemblance. La fonction $l(\beta)$ est la fonction de log-vraisemblance. La variable $n$ est le nombre d'observations dans l'échantillon d’entraînement et la variable $p$ est le nombre de variables explicatives.
 
-Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi à l'aide d'une validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la moyenne de la déviance par observation trouvée par validation croisée. Sa valeur est `r meilleur.lam.lasso`. La figure 1 ci-dessous montre la valeur de la déviance moyenne en fonction de l'hyperparamètre $\lambda$. La valeur qui minimise la déviance est sélectionnée. On voit avec la figure 1 que la régression ne semble pas très utile, puisque la courbe semble croissante et monotone.
+Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi à l'aide d'une validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la moyenne de la déviance pour chaque observation trouvée par validation croisée. Sa valeur est `r meilleur.lam.lasso`. La figure 1 ci-dessous montre la valeur de la déviance moyenne en fonction de l'hyperparamètre $\lambda$. La valeur qui minimise la déviance est sélectionnée. On voit avec la figure 1 que la régression ne semble pas très utile, puisque la courbe semble croissante et monotone.
 
-```{r fig_lam_lasso, fig.cap="Optimisation de de l'hyperparamètre lambda (Lasso)", fig.align = "center", fig.height=4}
+```{r fig_lam_lasso, fig.cap="Optimisation de l'hyperparamètre lambda (lasso) ", fig.align = "center", fig.height=4}
 ggplot(mapping = aes(x=cv.out$lambda, y=cv.out$cvm)) +
     geom_point() + geom_line() +
     geom_point(aes(x=meilleur.lam.lasso,
                y=min(cv.out$cvm)), size=5, col="orange", alpha=0.6)+
     theme_classic() + scale_x_continuous(trans = "log10")+
-    labs(title="Déviance moyenne en fonction de lambda (Lasso)",
-         x="lambda", y="Déviance moyenne")
+    labs(title="Déviance moyenne en fonction de différents lambda pour la régularisation Lasso",
+         x="Lambda", y="Déviance moyenne")
 ```
 
 ## k plus proches voisins
@@ -232,31 +232,31 @@ prev_test.knn <- fit_knn_test$pred * test$Expp + 1E-4
 deviance.knn <- dev.pois(prev_test.knn, test.knn$Numtppd)
 ```
 
-Ici, on construit le modèle des k plus proches voisins. Nous devons nous limiter aux variables numériques pour construire ce modèle, on ne s'attend donc pas à avoir le meilleur modèle.
+Ici, on construit le modèle des $k$ plus proches voisins. Nous devons nous limiter aux variables numériques pour construire ce modèle, on ne s'attend donc pas à avoir le meilleur modèle.
 
 Pour gérer l’exposition au risque, on utilise le ratio $N/t$ comme variable réponse. Le modèle fait une prévision pour une exposition de 1. Il suffit de multiplier par l'exposition réelle afin de trouver la prévision finale.
 
-Le modèle comporte un seul hyperparamètre, soit le $k$ qui représente le nombre de voisins utilisés pour calculer les prévisions. Pour ce faire, on utilise la procédure suivante :
+Le modèle comporte un seul hyperparamètre, soit le $k$ qui représente le nombre de voisins utilisé pour calculer les prévisions. Pour ce faire, on utilise la procédure suivante :
 
-1.  Créer un échantillon de validation de manière aléatoire avec 30 % de l'échantillon d'entrainement.
+1.  Créer un échantillon de validation de manière aléatoire avec 30 % de l'échantillon d'entrainement.
 
-2.  Faire les prévisions sur chaque observation de l'échantillon de validation, et ce, avec toutes les valeurs de $k$ testées. Note : on utilise un léger biais de 1E-4 pour éviter les prévisions de 0.
+2.  Faire les prévisions sur chaque observation de l'échantillon de validation, et ce, avec toutes les valeurs de $k$ testées. On utilise un léger biais de 1E-4 pour éviter les prévisions de 0.
 
 3.  Calculer la déviance Poisson de l'échantillon de validation pour toutes les valeurs de $k$.
 
 4.  Répéter 30 fois les étapes 1 à 3.
 
-5.  Utiliser la valeur de $k$ qui minimise la déviance moyenne (voir graphique 2).
+5.  Utiliser la valeur de $k$ qui minimise la déviance moyenne (voir la figure 2).
 
-À l'aide du graphique 2, on voit très clairement que la valeur optimale pour le $k$ est 95.
+À l'aide de la figure 2, on voit très clairement que la valeur optimale pour le $k$ est 95.
 
-```{r fig_knn, fig.cap="Optimisation de de l'hyperparamètre k (knn)", fig.align = "center", fig.height=4}
+```{r fig_knn, fig.cap="Optimisation de l'hyperparamètre k (k plus proches voisins)", fig.align = "center", fig.height=4}
 ggplot(mapping = aes(x=k, y=colMeans(resultats.knn))) + geom_point() + 
      geom_point(aes(x=k[which.min(colMeans(resultats.knn))]),
                y=min(colMeans(resultats.knn)), size=5, col="orange", alpha=0.6)+
     geom_line() + theme_classic() + 
-    labs(y="Moyenne des déviances\ndes échantillons  de validations", x="Nombre de voisins (k)",
-         title = "Déviance moyenne en fonction de k (knn)")
+    labs(y="Moyenne des déviances\ndes échantillons de validation", x="Nombre de voisins (k)",
+         title = "Déviance moyenne en fonction de différents k pour la\nméthode des k plus proches voisins")
 ```
 
 ## Arbre de décision
@@ -289,11 +289,11 @@ On construit maintenant un arbre de régression Poisson. On choisit la déviance
 
 Avant de faire un arbre, il faut choisir le coefficient de variation de la distribution à priori $(\gamma)$. On décide de garder la valeur par défaut que `R` nous suggère pour cet hyperparamètre, puisque de toute façon, ce dernier ne devrait pas influencer la performance du modèle de manière significative.
 
-On utilise un nombre d'observations par feuille minimal de 85. Cette valeur choisie au jugement permet d'avoir un minimum de 0.1 % des observations par feuille. Ce hyperparamètre n'a pas besoin d'être précis, puisque le cp va s'occuper de l'élagage.
+On utilise un nombre d'observations par feuille minimal de 85. Cette valeur choisie au jugement permet d'avoir un minimum de 0.1 % des observations par feuille. Cet hyperparamètre n'a pas besoin d'être précis, puisque le $cp$ va s'occuper de l'élagage.
 
-On procède par une validation croisée à 10 plis afin de trouver la valeur idéale du cp. On choisit le cp qui donne la plus petite déviance moyenne de la validation croisée. La valeur idéale trouvée est `r cp.pois`. Avec cette valeur, on peut obtenir l'arbre final. Le graphique 3 permet d'illustrer le processus d'optimisation de l'hyperparamètre.
+On procède par une validation croisée à 10 plis afin de trouver la valeur idéale du $cp$. On choisit le $cp$ qui donne la plus petite déviance moyenne de la validation croisée. La valeur idéale trouvée est `r cp.pois`. Avec cette valeur, on peut obtenir l'arbre final. La figure 3 permet d'illustrer le processus d'optimisation de l'hyperparamètre.
 
-```{r fig_cp_arbre, fig.cap="Optimisation de de l'hyperparamètre cp (arbre)", fig.align = "center", fig.height=4}
+```{r fig_cp_arbre, fig.cap="Optimisation de l'hyperparamètre cp (arbre de décision)", fig.align = "center", fig.height=4}
 ggplot(mapping = aes(x=CP, y=xerror)) + geom_point(data=arbre$cptable) +
     geom_line(data=arbre$cptable) + theme_classic() +
   scale_x_continuous(trans = "log10") + 
@@ -302,8 +302,8 @@ ggplot(mapping = aes(x=CP, y=xerror)) + geom_point(data=arbre$cptable) +
                                    "xerror"]), alpha=0.6, 
                size=5, col="orange") +
     ylim(0.8, 0.92)+
-    labs(title = "Erreur relative de la validation croisée en fonction du cp",
-         x="cp", y="Erreur rel. val. croisée")
+    labs(title = "Erreur relative de la validation croisée en fonction de différents cp\npour l'arbre de décision",
+         x="cp", y="Erreur relative de la validation croisée")
 ```
 
 ## Bagging
@@ -378,9 +378,9 @@ prev_test.bag <- distRforest::predict.rforest(mod.bag, newdata = test)
 deviance.bag <- dev.pois(preds = prev_test.bag, clnb = test$Numtppd)
 ```
 
-On construit ici un modèle de *bagging*. La fonction de perte utilisée est encore la déviance poisson.
+On construit ici un modèle de *bagging*. La fonction de perte utilisée est encore la déviance Poisson.
 
-Deux hyperparamètres sont à optimiser soit le nombre d'observations minimal par feuille et le nombre d'arbres utilisées. Pour l'optimisation du nombre minimal d'observations par feuille (*minbucket*), on a entrainé différents modèles identiques, mais avec une valeur de *minbucket* différente allant de 0 à 225 avec des bonds de 25. Pour tous ces modèles, on utilise 200 arbres. Le *minbucket* choisi est celui qui optimise la déviance moyenne des observations hors échantillon (OOB). Le graphique 4 illustre le processus d'optimisation. La valeur choisie est de 100 tel qu'illustrée par le graphique. Le choix de prendre 200 arbres a été vérifié graphiquement avec l'erreur OOB en fonction du nombre d'arbres.
+Deux hyperparamètres sont à optimiser soit le nombre d'observations minimal par feuille et le nombre d'arbres utilisé. Pour l'optimisation du nombre minimal d'observations par feuille (*minbucket*), on a entrainé différents modèles identiques, mais avec une valeur de *minbucket* différente allant de 0 à 225 avec des bonds de 25. Pour tous ces modèles, on utilise 200 arbres. Le *minbucket* choisi est celui qui optimise la déviance moyenne des observations hors échantillon (OOB). La figure 4 illustre le processus d'optimisation. La valeur choisie est de 100 telle qu'illustrée par le graphique. Le choix de prendre 200 arbres a été vérifié graphiquement avec l'erreur OOB en fonction du nombre d'arbres.
 
 ```{r fig_minb_bag, fig.cap="Optimisation de l'hyperparamètre minbucket (bagging)", fig.align = "center", fig.height=4}
 ggplot(mapping = aes(x=minb[-1], y=resultats.bag[-1])) +
@@ -388,8 +388,8 @@ ggplot(mapping = aes(x=minb[-1], y=resultats.bag[-1])) +
     geom_point(aes(x=minb[which.min(resultats.bag)]),
                y=min(resultats.bag), size=5, col="orange", alpha=0.6) +
     theme_classic() +
-        labs(title = "Déviance moyenne OOB en fonction de 'minbucket'",
-             x="minbucket", y="Déviance moyenne OOB")
+        labs(title = "Déviance moyenne OOB en fonction du nombre minimal d'observations par feuille\npour le bagging'",
+             x="Nombre minimal d'observations par feuille", y="Déviance moyenne OOB")
 ```
 
 ```{r fig_tree_bag, eval=FALSE}
@@ -501,26 +501,26 @@ Plusieurs hyperparamètres sont à déterminer :
 
 -   nombre d'arbres dans la forêt.
 
-On utilise une proportion de 50 % du nombre d'observations pour faire les échantillons *bootstrap.* Ce choix est motivé par un souci de puissance de calculs. De plus, la valeur choisit ne devrait pas modifier de manière très significative la performance du modèle.
+On utilise une proportion de 50 % du nombre d'observations pour faire les échantillons *bootstrap.* Ce choix est motivé par un souci de puissance de calculs. De plus, la valeur choisie ne devrait pas modifier de manière très significative la performance du modèle.
 
-Le nombre d'arbre est initialement déterminé à 125 puisque ce nombre semblait suffisant avec un graphique OOB sur un modèle initial avec hyperparamètres non optimisés. Ce nombre permet aussi d'avoir des temps de calculs plus raisonnable pour l'optimisation des hyperparamètres m et *minbucket*. La validité de ce nombre sera revérifiée à la fin du processus d'optimisation.
+Le nombre d'arbres est initialement déterminé à 125, puisque ce nombre semble suffisant avec un graphique OOB sur un modèle initial avec des hyperparamètres non optimisés. Ce nombre permet aussi d'avoir des temps de calculs plus raisonnables pour l'optimisation des hyperparamètres *m* et *minbucket*. La validité de ce nombre sera revérifiée à la fin du processus d'optimisation.
 
-Pour optimiser m et *minbucket*, on construit un modèle pour toutes les combinaisons possibles des valeurs d'hyperparamètres testées. Pour chaque modèle, on calcule la déviance moyenne OOB. On teste les valeurs d'hyperparamètres suivantes :
+Pour optimiser *m* et *minbucket*, on construit un modèle pour toutes les combinaisons possibles d'hyperparamètres testées. Pour chaque modèle, on calcule la déviance moyenne OOB. On teste les valeurs d'hyperparamètres suivantes :
 
 -   $m \in [3, 4, \dots, 11]$;
 
 -   $minbucket \in [20, 40, 60, 80]$.
 
-Le graphique 5 permet de visualiser le processus. On voit sur le graphique que la combinaison *minbucket* = 40 et m = 8 semble être la combinaison optimale.
+La figure 5 permet de visualiser le processus. On voit sur le graphique que la combinaison *minbucket* = 40 et *m* = 8 semble être la combinaison optimale.
 
-On finit la modélisation en ré-entraînant le modèle avec les hyperparamètres optimaux et on choisit un nombre d'arbres de 150 pour être sûr d'en avoir suffisamment.
+On finit la modélisation en ré-entraînant le modèle avec les hyperparamètres optimaux et on choisit un nombre d'arbres de 150 pour être certain d'en avoir suffisamment.
 
-```{r fig_optim_foret, fig.cap="Optimisation des hyperparamètres m et minbucket (RF)", fig.align = "center", fig.height=4}
+```{r fig_optim_foret, fig.cap="Optimisation des hyperparamètres m et minbucket (forêt aléatoire)", fig.align = "center", fig.height=4}
 ggplot(resultats.foret, mapping = aes(x=ncand, y=Erreur, col=minb)) +
     geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) + theme_classic() + theme(legend.position = "bottom") +
     scale_x_continuous(breaks = seq(min(resultats.foret$ncand), max(resultats.foret$ncand), by = 1))+
-    labs(title = "Déviance OOB en fonction des hyperparamètres m' et 'MinBucket'", x="Nombre de variables candidates (m)",
-         y="Déviance moyenne OOB", col="Minimum d'obs. par feuille :")
+    labs(title = "Déviance moyenne OOB en fonction des hyperparamètres m et minbucket\npour la forêt aléatoire", x="Nombre de variables candidates (m)",
+         y="Déviance moyenne OOB", col="Minimum d'observations par feuille (minbucket) :")
 ```
 
 ## Gradient Boosting
@@ -551,15 +551,15 @@ Pour choisir la meilleure combinaison, on utilise la procédure suivante :
 
 1.  Créer un échantillon de validation avec 15 000 observations.
 
-2.  Entraîner un modèle avec une validation croisée avec 5 plis et une combinaison des hyperparamètres *max.depth* et *bag.fraction.*
+2.  Entraîner un modèle avec une validation croisée de 5 plis et une combinaison des hyperparamètres *max.depth* et *bag.fraction.*
 
 3.  Utiliser la valeur d'*iter* qui minimise la déviance de la validation croisée.
 
 4.  Calculer la déviance sur l'échantillon de validation en utilisant les hyperparamètres choisis.
 
-5.  Répéter les étapes 2, 3, et 4 avec une combinaison d'hyperparamètres différente et ce jusqu'à ce que toutes les combinaisons aillent été testées.
+5.  Répéter les étapes 2, 3, et 4 avec une combinaison d'hyperparamètres différente, et ce, jusqu'à ce que toutes les combinaisons aient été testées.
 
-On peut étudier les résultats dans le graphique 6 où il est possible de voir que la meilleure combinaison de *max.depth* et *bag.fraction* est de 3 et 0.65. Le nombre d'itérations optimal pour cette combinaison est 6873.
+On peut étudier les résultats dans la figure 6 où il est possible de voir que la meilleure combinaison de *max.depth* et *bag.fraction* est de 3 et 0.65. Le nombre d'itérations optimal pour cette combinaison est 6873.
 
 ```{r}
 set.seed(201)
@@ -656,27 +656,27 @@ deviance.boost <- dev.pois(prev_test.boost, test$Numtppd)
 ggplot(resultats.boost, mapping = aes(x=depth, y=dev, col=factor(bag.frac))) +
     geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) +
     theme_classic() + theme(legend.position = "bottom") +
-    labs(title = "Déviance de l'échantillon valid en fonction de max.depth et bag.fraction", x="max.depth",
-         y="Déviance valid", col="bag.fraction : ")
+    labs(title = "Déviance de l'échantillon de validation en fonction de max.depth\net bag.fraction pour le boosting", x="Profondeur maximale des arbres (max.depth) ",
+         y="Déviance de l'échantillon de validation", col=" Proportion du nombre d'observations des échantillons bootstrap (bag.fraction) : ")
 ```
 
 # Comparaison des modèles
 
-Dans cette section, on compare les modèles afin de choisir les deux plus performant pour la suite. La métrique de choix pour notre situation est la déviance Poisson. On présente donc dans la table 1 la déviance Poisson des différents modèles sur les données `test` qui n'ont pas servi à l'entraînement. Ce que la table nous indique est que les meilleurs modèles sont : le modèle de base, le modèle *Lasso* et le modèle de *boosting*. Les autres modèles sembles nettement moins performants que ces trois deniers si on se fie à la métrique de déviance.
+Dans cette section, on compare les modèles afin de choisir les deux plus performants pour la suite. La métrique choisie pour notre situation est la déviance Poisson. On présente donc dans la table 1 la déviance Poisson des différents modèles sur les données `test` non utilisées pour l'entrainement. Ce que la table 1 nous indique est que les meilleurs modèles sont : le modèle de base, le modèle *Lasso* et le modèle de *boosting*. Les autres modèles semblent nettement moins performants que ces trois deniers si on se fie à la métrique de déviance.
 
 ```{r table deviance}
 dev.df <- data.frame(
     Modèle = c(
-        "Base (GLM)", "Lasso", "Knn",
+        "Base (GLM)", "Lasso", "KNN",
         "Arbre", "Bagging",
-        "RF", "Boost"
+        "Forêt aléatoire", "Boosting"
     ),
     Déviance=round(c(
         deviance.base, deviance.lasso, deviance.knn,
         deviance.arbre, deviance.bag,
         deviance.foret, deviance.boost
     )),
-    LR=round(sapply(list(
+    "Ratio de perte" =round(sapply(list(
         prev_test.base, prev_test.lasso, prev_test.knn,
         prev_test.arbre, prev_test.bag,
         prev_test.foret, prev_test.boost), sum
@@ -684,7 +684,7 @@ dev.df <- data.frame(
 )
 dev.df <- dev.df[order(dev.df$Déviance), ]
 knitr::kable(dev.df, format = "markdown", row.names = FALSE, align = "c",
-             caption = "Métriques de performance sur l'échantillon Test")
+             caption = "Métriques de performance sur l'échantillon test")
 ```
 
 ```{r}
@@ -703,7 +703,7 @@ test_gini <- data.frame(test$Numtppd, prev_test.base,
 
 # On peux maintenant créer un dataset léger qui contient ce qu'on veut
 colnames(test_gini) <- c("Nb réclamtion", "GLM", "Lasso", "Boosting", "Random F",
-                          "Knn", "Arbre", "Bagging")
+                          "KNN", "Arbre", "Bagging")
 
 gini <- cplm::gini(loss = "Nb réclamtion",
 score = colnames(test_gini[-1]),
@@ -719,10 +719,10 @@ gini <- data.frame(
 )
 gini <- round(gini, 2)
 diag(gini) <- "-"
-rownames(gini) <- c("GLM", "Lasso", "Boosting", "Random F",
-                    "Knn", "Arbre", "Bagging")
+rownames(gini) <- c("GLM", "Lasso", "Boosting", "Forêt aléatoire",
+                    "KNN", "Arbre", "Bagging")
 knitr::kable(gini, format = "markdown", row.names = TRUE, align = "c",
-             caption = "Coef. de Gini - (Modèle de référence sur la gauche)")
+             caption = "Coefficients de Gini - (Modèle de référence GLM sur la gauche)")
 ```
 
 ```{r}
@@ -780,8 +780,8 @@ double_lift <- function(actual, ref, pred, mod.names, k=4, w){
         scale_y_continuous(
             name="Ratio de perte",
             sec.axis = sec_axis(~.*scale, name = "Exposition", )) +
-        labs(title = "Courbes 'double lift' avec GLM comme référence",
-             x="Groupe", col="Modèles :") + 
+        labs(title = "Diagrammes de leviers doubles avec le GLM comme référence",
+             x="Groupes", col="Modèles :") + 
         theme_bw() + coord_cartesian(ylim=c(0.4, 1.6))+
         theme(legend.position = "bottom")
     p
@@ -793,8 +793,8 @@ library(gridExtra)
 double_lift(actual = test$Numtppd, ref = prev_test.base,
             pred = list(prev_test.lasso, prev_test.boost, prev_test.foret,
                         prev_test.knn, prev_test.arbre, prev_test.bag),
-            mod.names = c("GLM", "Lasso", "Boosting", "Random F",
-                          "Knn", "Arbre", "Bagging"),
+            mod.names = c("GLM", "Lasso", "Boosting", "Forêt aléatoire",
+                          "KNN", "Arbre", "Bagging"),
             k=5, w = test$Expp)
 ```
 
@@ -811,8 +811,8 @@ eval_age <- function(age){
 xx <- seq(18, 75, 0.001)
 yy <- sapply(xx, eval_age)
 ggplot() + geom_line(aes(x=xx, y=yy), linewidth=1) + theme_bw() + 
-        labs(x="Age", y="% de la prévision à Age=18",
-             title = "Effet de la variable Age")
+        labs(x="Âge", y="Pourcentage de la prévision pour age = 18",
+             title = "Effet de la variable age sur la prévision")
 ```
 
 ```{r}
@@ -831,7 +831,7 @@ diff_dat <- cbind(variables, diff_dat)[-c(1, 12:21, 27), ]
 ggplot(diff_dat, aes(y = differentiel, x = variables, fill = differentiel)) +
   geom_bar(stat = "identity") +
   coord_flip() +
-  labs(x = "Variable", y = "Différentiel", fill= "Différentiel",
+  labs(x = "Variables", y = "Différentiels", fill= "Différentiel",
        title = "Différentiels des variables catégorielles (GLM)")+
   scale_fill_continuous(low = "gold",
   high = "firebrick") + theme_bw()+
