@@ -388,7 +388,7 @@ ggplot(mapping = aes(x=minb[-1], y=resultats.bag[-1])) +
     geom_point(aes(x=minb[which.min(resultats.bag)]),
                y=min(resultats.bag), size=5, col="orange", alpha=0.6) +
     theme_classic() +
-        labs(title = "Déviance moyenne OOB en fonction du nombre minimal d'observations par feuille\npour le bagging'",
+        labs(title = "Déviance moyenne OOB en fonction du nombre minimal d'observations\npar feuille pour le bagging'",
              x="Nombre minimal d'observations par feuille", y="Déviance moyenne OOB")
 ```
 
@@ -519,7 +519,7 @@ On finit la modélisation en ré-entraînant le modèle avec les hyperparamètre
 ggplot(resultats.foret, mapping = aes(x=ncand, y=Erreur, col=minb)) +
     geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) + theme_classic() + theme(legend.position = "bottom") +
     scale_x_continuous(breaks = seq(min(resultats.foret$ncand), max(resultats.foret$ncand), by = 1))+
-    labs(title = "Déviance moyenne OOB en fonction des hyperparamètres m et minbucket\npour la forêt aléatoire", x="Nombre de variables candidates (m)",
+    labs(title = "Déviance moyenne OOB en fonction des hyperparamètres\nm et minbucket pour la forêt aléatoire", x="Nombre de variables candidates (m)",
          y="Déviance moyenne OOB", col="Minimum d'observations par feuille (minbucket) :")
 ```
 
@@ -677,12 +677,12 @@ ggplot(resultats.boost, mapping = aes(x=depth, y=dev, col=factor(bag.frac))) +
     geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) +
     theme_classic() + theme(legend.position = "bottom") +
     labs(title = "Déviance de l'échantillon de validation en fonction de max.depth\net bag.fraction pour le boosting", x="Profondeur maximale des arbres (max.depth) ",
-         y="Déviance de l'échantillon de validation", col=" Proportion du nombre d'observations des échantillons bootstrap (bag.fraction) : ")
+         y="Déviance de l'échantillon de validation", col=" Proportion échantillons bootstrap (bag.fraction : ")
 ```
 
 # Comparaison des modèles
 
-Dans cette section, on compare les modèles afin de choisir les deux plus performants pour la suite. La métrique choisie pour notre situation est la déviance Poisson. On présente donc dans la table 1 la déviance Poisson des différents modèles sur les données `test` non utilisées pour l'entrainement. Ce que la table 1 nous indique est que les meilleurs modèles sont : le modèle de base, le modèle *Lasso* et le modèle de *boosting*. Les autres modèles semblent nettement moins performants que ces trois deniers si on se fie à la métrique de déviance.
+Dans cette section, on compare les modèles afin de choisir les deux plus performants pour la suite. La métrique choisie pour notre situation est la déviance Poisson. On présente donc dans la table 1 la déviance Poisson des différents modèles sur les données `test` non utilisées pour l’entraînement. Ce que la table 1 nous indique est que les meilleurs modèles selon la déviance sont : le modèle de base, le modèle *Lasso* et le modèle de *boosting*. Les autres modèles semblent nettement moins performants que ces trois deniers si on se fie à la métrique de déviance.
 
 ```{r table deviance}
 dev.df <- data.frame(
@@ -707,6 +707,8 @@ knitr::kable(dev.df, format = "markdown", row.names = FALSE, align = "c",
              caption = "Métriques de performance sur l'échantillon test")
 ```
 
+Dans la table 2, on compare les différents modèles avec l'indice de Gini. On observe que le modèle de *boosting* performe beaucoup mieux que tous les autres modèles. En effet, lorsqu'il n'est pas le modèle de référence, on voit qu'il trouve le plus de failles dans les modèles de référence. On peut conclure que c'est le cas, puisque le *boosting* possède toujours le plus grand coefficient de Gini. Au contraire, lorsque le *boosting* est le modèle de référence, les modèles utilisés en comparaison ne trouvent pas beaucoup de failles (coefficients de Gini petits). Bref, selon les coefficients de Gini, le *boosting* est de loin le meilleur modèle.
+
 ```{r}
 # df <- cbind(
 #     prev_test.base, unlist(prev_test.lasso), prev_test.boost,
@@ -722,7 +724,7 @@ test_gini <- data.frame(test$Numtppd, prev_test.base,
                         prev_test.arbre, prev_test.bag)
 
 # On peux maintenant créer un dataset léger qui contient ce qu'on veut
-colnames(test_gini) <- c("Nb réclamtion", "GLM", "Lasso", "Boosting", "Random F",
+colnames(test_gini) <- c("Nb réclamtion", "GLM", "Lasso", "Boosting", "Forêt aléatoire",
                           "KNN", "Arbre", "Bagging")
 
 gini <- cplm::gini(loss = "Nb réclamtion",
@@ -808,6 +810,8 @@ double_lift <- function(actual, ref, pred, mod.names, k=4, w){
 }
 ```
 
+Dans la figure 7, on compare tous les modèles avec le modèle de référence GLM avec des diagrammes de leviers doubles. On observe que le modèle de référence (GLM) permet une meilleure segmentation que tous les autres modèles à l'exception du *boosting.* En effet, le modèle de *boosting* segmente beaucoup mieux les données que le modèle GLM. On remarque aussi que le modèle GLM et le modèle *Lasso* agissent de manière très similaire. Ceci est dû au fait que les deux modèles sont fortement corrélés ($\rho \approx  0.993$). Bref, le *boosting* est le meilleur, suivi du GLM et du *Lasso*. On conserve donc le *boosting* et le GLM, puisque le GLM est essentiellement le modèle *Lasso*, mais en plus simple.
+
 ```{r, fig.cap="Comparaison des modèles", fig.align = "center", fig.height=6, message=FALSE}
 library(gridExtra)
 double_lift(actual = test$Numtppd, ref = prev_test.base,
@@ -822,20 +826,15 @@ double_lift(actual = test$Numtppd, ref = prev_test.base,
 
 ## GLM
 
-```{r}
-coef <- coef(mod.base)
-eval_age <- function(age){
-    age <- age/75
-    100 * exp(sum(age^(1:7) * coef[12:18])) / exp(sum((18/75)^(1:7) * coef[12:18]))
-}
-xx <- seq(18, 75, 0.001)
-yy <- sapply(xx, eval_age)
-ggplot() + geom_line(aes(x=xx, y=yy), linewidth=1) + theme_bw() + 
-        labs(x="Âge", y="Pourcentage de la prévision pour age = 18",
-             title = "Effet de la variable age sur la prévision")
-```
+La variable `Bonus` est la plus importante. Son effet sur la prévision est intuitif, puisqu'à chaque fois que la variable augmente de 1, la prévision augmente d'environ 1.086. L'étendue de cette variable est [-50, 150]. Ceci donne une diminution de 41.7 % pour les meilleures personnes assurées et une augmentation de 405 % pour les pires conducteurs, le tout par rapport à un assuré qui a un `Bonus` de 0.
 
-```{r}
+Une autre variable importante est la puissance du véhicule. Lorsque le logarithme de la variable augmente de 1, la prévision augmente d'environ 79.9 %. La plus grande augmentation possible d'une prévision par rapport à la plus petite puissance est de 481 %.
+
+Les variables `Density` et `Poldur` ont un signal intuitif. À chaque fois que la densité de population augmente de 10, la prévision augmente d'environ 4.83 %. À chaque fois que l’ancienneté du client augmente de 1, la prévision diminue d’environ 2.60 %.
+
+Dans la figure 8 ci-dessous, on présente les différentiels des variables catégorielles. La variable `Type` est ordinale, comme prévu dans l'analyse exploratoire. La variable `Region` semble moins intéressante que prévu. La région R a un coefficient plus bas que les autres régions, alors qu'elle était la région la plus risquée dans l'analyse exploratoire. C'est certainement parce que la variable `Density` donne aussi de l'information sur le danger des régions. Pour la variable `Occupation`, l'élément à retenir est que les personnes retraitées sont classées comme étant moins dangereuses selon le modèle. Finalement, on remarque que les hommes sont plus impactés que les femmes, puisqu'ils sont beaucoup plus risqués que les femmes selon notre modèle.
+
+```{r, fig.cap="Interprétation des variables catégorielles", fig.align = "center", fig.height=4}
 
 # Premièrement, nous allons chercher les coefficients du GLM
 coef <- summary(mod.base)$coefficients[,1]
@@ -858,11 +857,20 @@ ggplot(diff_dat, aes(y = differentiel, x = variables, fill = differentiel)) +
   geom_text(aes(label= round(differentiel, 2)))
 ```
 
-La variable `Bonus` est la plus importante. Son effet sur la prime est intuitif, puisqu'à chaque fois que la variable augmente de 1, la prime augmente d'environ 1.086. L'étendue de cette variable est [-50, 150]. Ceci donne un diminution de 41.7 % pour les meilleurs personnes assurées et une augmentation de 405 % pour les pires conducteurs le tout par rapport à un assuré qui a un `Bonus` de 0.
+Finalement, on étudie l'effet de la variable `Age` sur la prévision. La figure 9 présente la proportion de la prévision d'un individu de 18 ans que quelqu'un d'un âge quelconque aurait si aucune autre variable change. Par exemple, on observe qu'un individu de 18 ans a 100 % de la prévision d'un individu de 18 ans, mais un individu de 70 ans a une prévision de 40 % la prévision d'un individu de 18 ans. Bref, la relation est complexe, mais globalement, plus une personne est vieille, plus sa prévision sera basse avec une légère hausse vers la fin pour les personnes très âgées.
 
-Une autre variable importante est la puissance du véhicule. Lorsque le logarithme de la variable augmente de 1, la prévision augmente d'environ 79.9 %. La plus grande augmentation de prévision possible par rapport à la plus petite puissance est de 481 %.
-
-Finalement les deux dernières variables `Density` et `Poldur` ont un signal logique. À chaque fois que la densité de population augmente de 10, la prévision augmente d'environ 4.83 %. À chaque fois que le l’ancienneté du client augmente de 1, la prime diminue d’environ 2.60 %.
+```{r, fig.cap="Interprétation de la variable age sur la prévision ", fig.align = "center", fig.height=4}
+coef <- coef(mod.base)
+eval_age <- function(age){
+    age <- age/75
+    100 * exp(sum(age^(1:7) * coef[12:18])) / exp(sum((18/75)^(1:7) * coef[12:18]))
+}
+xx <- seq(18, 75, 0.001)
+yy <- sapply(xx, eval_age)
+ggplot() + geom_line(aes(x=xx, y=yy), linewidth=1) + theme_bw() + 
+        labs(x="Âge", y="Pourcentage de la prévision pour age = 18",
+             title = "Effet de la variable age sur la prévision")
+```
 
 ## Gradient Boosting
 
@@ -893,4 +901,8 @@ plot(boost.imp)
 
 # Conclusion
 
+Après notre analyse, nous recommandons le modèle de *boosting* de gradient stochastique. Nous sommes satisfaits de ce modèle, puisqu'il dépasse tous les autres de beaucoup en performance. Un autre modèle envisageable pourrait être un GLM avec des interactions. Ces interactions seraient trouvées en regardant les interactions les plus significatives dans le modèle de *boosting* de gradient stochastique. La prochaine étape du problème serait de modéliser la sévérité afin de pouvoir l'appliquer en tarification en assurance automobile.
+
 # Bibliographie
+
+Charpentier, Arthur (2015, juillet 20). Pricing Game (100% Actuaires). [Freakonometrics]. Récupéré de <https://doi.org/10.58079/ov01>
