@@ -631,6 +631,26 @@ bag.fraction <- c(0.5, 0.75)
 #             verbose = TRUE, 
 #             cv.folds = 5)
 # best.iter.cv <- gbm.perf(mod.boost, method = "cv")
+
+# set.seed(125)
+# 
+# controles <- trainControl(method="none", number=1)
+# 
+# gbmGrille <-  expand.grid(n.trees = 1800,
+#                          interaction.depth = 2,
+#                          shrinkage = 0.05,
+#                          n.minobsinnode = 100)
+
+# mod.gbm <- caret::train(Numtppd ~.-Expp,
+#                 data = train.dat[-valid_idx,],
+#                 method = "gbm",
+#                 bag.fraction=0.75,
+#                 weights=Expp, 
+#                 distribution = "poisson",
+#                 trControl = controles,
+#                 tuneGrid = gbmGrille,
+#                 verbose = TRUE)
+# mod.boost <- mod.gbm
 ```
 
 ```{r}
@@ -846,10 +866,25 @@ Finalement les deux dernières variables `Density` et `Poldur` ont un signal log
 
 ## Gradient Boosting
 
+```{r}
+predict.fun <- function(model, newdata){
+    newData_x <- test
+    predict(mod.boost, newdata = newdata,
+            type = "response", n.trees=best.iter.cv) * newdata$Expp 
+}
+
+boost.iml <- Predictor$new(
+  model = mod.boost,
+  data = test[, -11],
+  y = test$Numtppd,
+  predict.fun = predict.fun,
+  class = "regression"
+  )
+```
+
 ```{r message=FALSE, warning=FALSE}
-boost.iml <- iml::Predictor$new(model = mod.boost)
 boost.imp <- iml::FeatureImp$new(boost.iml, loss = "ce", compare = "difference",
-                                 n.repetitions = 5)
+                                 n.repetitions = 1)
 ```
 
 ```{r}
