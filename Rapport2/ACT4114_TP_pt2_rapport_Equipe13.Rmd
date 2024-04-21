@@ -51,7 +51,7 @@ dev.pois <- function(preds, clnb){
 
 # Introduction
 
-Les accidents automobiles sont fréquents partout à travers le monde. La France n'en fait pas exception. En effet, selon les statistiques de la Sécurité Routière, il y a eu, en 2020, environ 142 000 accidents de la route impliquant au moins un véhicule. Ceci représente approximativement 364 accidents par tranche de 100 000 conducteurs. Ces accidents comprennent une gamme de type, des collisions mineures aux accidents plus graves. Il est donc important pour les assureurs de modéliser efficacement la fréquence des accidents afin de prévoir le nombre de réclamations qu'aura une personne assurée durant la durée de sa police. La sévérité des sinistres est tout aussi importante à modéliser, mais nous allons nous concentrer sur la modélisation de la fréquence.
+Les accidents automobiles sont fréquents partout à travers le monde. La France n'en fait pas exception. Les accidents automobiles comprennent une vaste gamme de type (des collisions mineures aux accidents mortelles). Il est donc crucial pour les assureurs de modéliser efficacement la fréquence des accidents afin de prévoir le nombre de réclamations qu'aura une personne assurée durant la durée de sa police. La sévérité des sinistres est tout aussi importante à modéliser, mais nous allons nous concentrer sur la modélisation de la fréquence.
 
 Plus précisément, dans ce rapport, on modélisera la fréquence des réclamations pour la responsabilité civile (dommages matériels) en assurance automobile. Nos données représentent un portefeuille d'assurés français. Dans le tableau de données original on retrouve :
 
@@ -67,7 +67,7 @@ Plusieurs modèles seront étudiés pour modéliser la variable réponse :
 
 -   Modèle des k plus proches voisins;
 
--   Arbre de décision;
+-   Arbre de régression;
 
 -   *Bagging;*
 
@@ -81,7 +81,7 @@ Pour plus d'information sur les données, il est possible d'aller voir la docume
 
 À noter que des modifications ont été faites sur le jeu de données, celles-ci sont documentées dans le premier rapport (Analyse préparatoire).
 
-Dans ce rapport, on présentera d'abord un modèle de base (GLM). Ensuite, on parlera des autres modèles étudiés en détaillant la procédure utilisée pour les ajuster. Par la suite, tous les modèles étudiés seront comparés. On interprétera ensuite les deux modèles les plus prometteurs. Enfin, on proposera un choix de modèle final. Les lecteurs intéressés par la recommandation finale peuvent passer directement à la section conclusion.
+Dans ce rapport, on présentera d'abord un modèle de base (GLM). Ensuite, on parlera des autres modèles étudiés en détaillant la procédure utilisée pour les ajuster. Tous les modèles étudiés seront comparés. On interprétera les deux modèles les plus prometteurs. Enfin, on proposera un choix de modèle final. Les lecteurs intéressés par la recommandation finale peuvent passer directement à la section conclusion.
 
 # Modèle de base
 
@@ -101,11 +101,13 @@ prev_test.base <- predict(mod.base, newdata=test, type="response")
 deviance.base <- dev.pois(prev_test.base, test$Numtppd)
 ```
 
-Après avoir séparé les données en deux échantillons soit `train` (85 % des données) et `test` (15 % des données), on est prêt à construire le modèle de base. On fait face à un problème de régression avec une variable réponse discrète. La loi de Poisson, la loi Binomiale Négative et la loi Poisson gonflée à zéro sont toutes des possibilités pour construire un modèle linéaire généralisé sur des données de comptage.
+Après avoir séparé les données en deux échantillons soit `train` (85 % des données) et `test` (15 % des données), on est prêt à construire le modèle de base. On utilisera évidemment les mêmes jeux de données pour entraîner et tester les autres modèles. On note également que l'exposition au risque sera prise en compte dans nos modèles.
 
-Dans notre cas, le modèle choisi est le modèle Poisson, car c'est le choix le plus simple pour un modèle de base. Le modèle est donc un GLM Poisson avec fonction de lien logarithmique.
+On fait face à un problème de régression avec une variable réponse discrète. La loi de Poisson, la loi Binomiale Négative et la loi Poisson gonflée à zéro sont toutes des possibilités pour construire un modèle linéaire généralisé (GLM) sur des données de comptage.
 
-Avec notre premier rapport, on a vu qu'il pourrait être intéressant d’utiliser la variable `age` jusqu'au degré 7 (âge, âge$^2, \dots$, âge$^7$). Cela veut dire que la relation entre la variable `age` et notre variable réponse est complexe. Pour mieux l'expliquer, on vient donc utiliser un polynôme de degré 7. À première vue, cette technique semble en effet efficace, puisqu'après la sélection des variables, on conserve les 7 qui sont reliées à l'âge. Pour sélectionner nos variables, on a fait une analyse de déviance au seuil de confiance 99 % en utilisant la méthode algorithmique *Backward*. C'est donc un modèle simple, mais qui demeure une référence fiable pour la suite.
+Dans notre cas, le modèle choisi est le modèle Poisson, car c'est le choix le plus simple pour un modèle de base. Le modèle est donc un GLM Poisson avec fonction de lien logarithmique. Le lien *log* est choisi, car il limite les prévisions au réels positifs.
+
+Avec notre premier rapport, on a vu qu'il pourrait être intéressant d’utiliser la variable `age` jusqu'au degré 7 (âge, âge$^2, \dots$, âge$^7$). On fait cela, puisque la relation entre la variable `age` et notre variable réponse est complexe. Pour mieux l'expliquer, on vient donc utiliser un polynôme de degré 7. À première vue, cette technique semble en effet efficace, puisqu'après la sélection des variables, on conserve les 7 qui sont reliées à l'âge. Pour sélectionner nos variables, on a fait une analyse de déviance au seuil de confiance 99 % en utilisant la méthode algorithmique *Backward*. On a donc un modèle relativement simple, mais qui demeure une référence fiable pour la suite.
 
 # Ajustement des modèles
 
@@ -149,7 +151,7 @@ prev_test.lasso <- exp(predict(mod.lasso, newx = x.test, newoffset = I(log(test$
 deviance.lasso <- dev.pois(prev_test.lasso, test$Numtppd)
 ```
 
-Ici, on construit un modèle de régression régularisée *Lasso*. La distribution utilisée est une fois de plus la loi de Poisson. Le lien utilisé est le lien logarithmique. On rappelle qu'on utilise encore une régression polynomiale de degré 7 sur l'âge.
+Ici, on construit un modèle de régression régularisée *Lasso*. La distribution utilisée est une fois de plus la loi de Poisson; le lien utilisé est encore le lien logarithmique le tout pour les mêmes bonnes raisons citées précédemment dans la section du modèle de base. On rappelle qu'on utilise encore une régression polynomiale de degré 7 sur l'âge.
 
 L'avantage de la régression régularisée *Lasso* est que la sélection des variables explicatives est faite pour nous. La fonction *Score* de la régression est :
 
@@ -157,14 +159,14 @@ $$ S^{Lasso}(\beta) = \frac{-l(\beta)}{n} + \lambda  \sum_{j = 1}^p | \beta_j|. 
 
 Le vecteur $\beta$ est le vecteur de paramètres qui sera estimé par maximum de vraisemblance. La fonction $l(\beta)$ est la fonction de log-vraisemblance. La variable $n$ est le nombre d'observations dans l'échantillon d’entraînement et la variable $p$ est le nombre de variables explicatives.
 
-Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi à l'aide d'une validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la moyenne de la déviance pour chaque observation trouvée par validation croisée. Sa valeur est `r meilleur.lam.lasso`. La figure 1 ci-dessous montre la valeur de la déviance moyenne en fonction de l'hyperparamètre $\lambda$. La valeur qui minimise la déviance est sélectionnée. On voit avec la figure 1 que la régression ne semble pas très utile, puisque la courbe semble croissante et monotone.
+Pour ce qui est de l'hyperparamètre $\lambda$, il est choisi à l'aide d'une validation croisée avec 10 plis. Cet hyperparamètre est choisi de façon à minimiser la moyenne de la déviance pour chaque observation trouvée par validation croisée. La valeur sélectionnée est `r format(meilleur.lam.lasso, digits=4)`. La figure 1 ci-dessous montre la valeur de la déviance moyenne en fonction de l'hyperparamètre $\lambda$. La valeur qui minimise la déviance est sélectionnée. On voit avec la figure 1 que la régression ne semble pas utile, puisque la courbe semble croissante et monotone.
 
 ```{r fig_lam_lasso, fig.cap="Optimisation de l'hyperparamètre lambda (lasso) ", fig.align = "center", fig.height=4}
 ggplot(mapping = aes(x=cv.out$lambda, y=cv.out$cvm)) +
     geom_point() + geom_line() +
     geom_point(aes(x=meilleur.lam.lasso,
                y=min(cv.out$cvm)), size=5, col="orange", alpha=0.6)+
-    theme_classic() + scale_x_continuous(trans = "log10")+
+    theme_bw() + scale_x_continuous(trans = "log10")+
     labs(title="Déviance moyenne en fonction de différents lambda pour la régularisation Lasso",
          x="Lambda", y="Déviance moyenne")
 ```
@@ -236,15 +238,15 @@ Ici, on construit le modèle des $k$ plus proches voisins. Nous devons nous limi
 
 Pour gérer l’exposition au risque, on utilise le ratio $N/t$ comme variable réponse. Le modèle fait une prévision pour une exposition de 1. Il suffit de multiplier par l'exposition réelle afin de trouver la prévision finale.
 
-Le modèle comporte un seul hyperparamètre, soit le $k$ qui représente le nombre de voisins utilisé pour calculer les prévisions. Pour ce faire, on utilise la procédure suivante :
+Le modèle comporte un seul hyperparamètre, soit le $k$ qui représente le nombre de voisins pour calculer les prévisions. Pour sélectionner l'hyperparamètre, on utilise la procédure suivante :
 
 1.  Créer un échantillon de validation de manière aléatoire avec 30 % de l'échantillon d'entrainement.
 
-2.  Faire les prévisions sur chaque observation de l'échantillon de validation, et ce, avec toutes les valeurs de $k$ testées. On utilise un léger biais de 1E-4 pour éviter les prévisions de 0.
+2.  Faire les prévisions sur chaque observation de l'échantillon de validation, et ce, avec toutes les valeurs de $k$ testées. On utilise un léger biais de `r format(1E-4, digits=1)` pour éviter les prévisions de 0.
 
 3.  Calculer la déviance Poisson de l'échantillon de validation pour toutes les valeurs de $k$.
 
-4.  Répéter 30 fois les étapes 1 à 3.
+4.  Répéter 30 fois les étapes 1 à 3 et calculer la déviance moyenne pour chhaque valeur de $k$.
 
 5.  Utiliser la valeur de $k$ qui minimise la déviance moyenne (voir la figure 2).
 
@@ -254,12 +256,12 @@ Le modèle comporte un seul hyperparamètre, soit le $k$ qui représente le nomb
 ggplot(mapping = aes(x=k, y=colMeans(resultats.knn))) + geom_point() + 
      geom_point(aes(x=k[which.min(colMeans(resultats.knn))]),
                y=min(colMeans(resultats.knn)), size=5, col="orange", alpha=0.6)+
-    geom_line() + theme_classic() + 
+    geom_line() + theme_bw() + 
     labs(y="Moyenne des déviances\ndes échantillons de validation", x="Nombre de voisins (k)",
          title = "Déviance moyenne en fonction de différents k pour la\nméthode des k plus proches voisins")
 ```
 
-## Arbre de décision
+## Arbre de régression
 
 ```{r arbre, message=FALSE, warning=FALSE}
 set.seed(2019)
@@ -287,22 +289,20 @@ deviance.arbre <- dev.pois(prev_test.arbre, test$Numtppd)
 
 On construit maintenant un arbre de régression Poisson. On choisit la déviance Poisson comme fonction de perte. Ce choix est assez intuitif étant donné que nous sommes en présence de données de comptage.
 
-Avant de faire un arbre, il faut choisir le coefficient de variation de la distribution à priori $(\gamma)$. On décide de garder la valeur par défaut que `R` nous suggère pour cet hyperparamètre, puisque de toute façon, ce dernier ne devrait pas influencer la performance du modèle de manière significative.
+On utilise un nombre d'observations par feuille minimal de 85. Cette valeur choisie au jugement permet d'avoir un minimum de 0.1 % des observations par feuille (ne tient pas compte de l'exposition). Cet hyperparamètre n'a pas besoin d'être précis, puisque le $cp$ va s'occuper de l'élagage.
 
-On utilise un nombre d'observations par feuille minimal de 85. Cette valeur choisie au jugement permet d'avoir un minimum de 0.1 % des observations par feuille. Cet hyperparamètre n'a pas besoin d'être précis, puisque le $cp$ va s'occuper de l'élagage.
+On procède par une validation croisée à 10 plis afin de trouver la valeur idéale du $cp$. On choisit le $cp$ qui donne la plus petite déviance moyenne de la validation croisée. La valeur idéale trouvée est `r format(cp.pois, digits=3)`. Avec cette valeur, on peut obtenir l'arbre final. La figure 3 permet d'illustrer le processus d'optimisation de l'hyperparamètre.
 
-On procède par une validation croisée à 10 plis afin de trouver la valeur idéale du $cp$. On choisit le $cp$ qui donne la plus petite déviance moyenne de la validation croisée. La valeur idéale trouvée est `r cp.pois`. Avec cette valeur, on peut obtenir l'arbre final. La figure 3 permet d'illustrer le processus d'optimisation de l'hyperparamètre.
-
-```{r fig_cp_arbre, fig.cap="Optimisation de l'hyperparamètre cp (arbre de décision)", fig.align = "center", fig.height=4}
+```{r fig_cp_arbre, fig.cap="Optimisation de l'hyperparamètre cp (arbre)", fig.align = "center", fig.height=4}
 ggplot(mapping = aes(x=CP, y=xerror)) + geom_point(data=arbre$cptable) +
-    geom_line(data=arbre$cptable) + theme_classic() +
+    geom_line(data=arbre$cptable) + theme_bw() +
   scale_x_continuous(trans = "log10") + 
     geom_point(aes(x=cp.pois,
                    y=arbre$cptable[which.min(arbre$cptable[, "xerror"]),
                                    "xerror"]), alpha=0.6, 
                size=5, col="orange") +
     ylim(0.8, 0.92)+
-    labs(title = "Erreur relative de la validation croisée en fonction de différents cp\npour l'arbre de décision",
+    labs(title = "Erreur relative de la validation croisée en fonction de différents cp\npour l'arbre de régression",
          x="cp", y="Erreur relative de la validation croisée")
 ```
 
@@ -380,14 +380,14 @@ deviance.bag <- dev.pois(preds = prev_test.bag, clnb = test$Numtppd)
 
 On construit ici un modèle de *bagging*. La fonction de perte utilisée est encore la déviance Poisson.
 
-Deux hyperparamètres sont à optimiser soit le nombre d'observations minimal par feuille et le nombre d'arbres utilisé. Pour l'optimisation du nombre minimal d'observations par feuille (*minbucket*), on a entrainé différents modèles identiques, mais avec une valeur de *minbucket* différente allant de 0 à 225 avec des bonds de 25. Pour tous ces modèles, on utilise 200 arbres. Le *minbucket* choisi est celui qui optimise la déviance moyenne des observations hors échantillon (OOB). La figure 4 illustre le processus d'optimisation. La valeur choisie est de 100 telle qu'illustrée par le graphique. Le choix de prendre 200 arbres a été vérifié graphiquement avec l'erreur OOB en fonction du nombre d'arbres.
+Deux hyperparamètres sont à optimiser soit le nombre minimal d'observations par feuille et le nombre d'arbres utilisé. Pour l'optimisation du nombre minimal d'observations par feuille (*minbucket*), on a entraîné différents modèles qui ont une valeur de *minbucket* différente allant de 0 à 225 avec des bonds de 25. Pour tous ces modèles, on utilise 200 arbres. Le *minbucket* choisi est celui qui optimise la déviance moyenne des observations hors échantillon (OOB). La figure 4 illustre le processus d'optimisation. La valeur choisie est de 100 telle qu'illustrée par le graphique. Le choix de prendre 200 arbres a été vérifié graphiquement avec l'erreur OOB en fonction du nombre d'arbres sur un modèle non optimisé. On a également revérifié que cette valeur était suffisante avec le modèle optimisé.
 
 ```{r fig_minb_bag, fig.cap="Optimisation de l'hyperparamètre minbucket (bagging)", fig.align = "center", fig.height=4}
 ggplot(mapping = aes(x=minb[-1], y=resultats.bag[-1])) +
     geom_point() + geom_line() +
     geom_point(aes(x=minb[which.min(resultats.bag)]),
                y=min(resultats.bag), size=5, col="orange", alpha=0.6) +
-    theme_classic() +
+    theme_bw() +
         labs(title = "Déviance moyenne OOB en fonction du nombre minimal d'observations\npar feuille pour le bagging'",
              x="Nombre minimal d'observations par feuille", y="Déviance moyenne OOB")
 ```
@@ -517,7 +517,7 @@ On finit la modélisation en ré-entraînant le modèle avec les hyperparamètre
 
 ```{r fig_optim_foret, fig.cap="Optimisation des hyperparamètres m et minbucket (forêt aléatoire)", fig.align = "center", fig.height=4}
 ggplot(resultats.foret, mapping = aes(x=ncand, y=Erreur, col=minb)) +
-    geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) + theme_classic() + theme(legend.position = "bottom") +
+    geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) + theme_bw() + theme(legend.position = "bottom") +
     scale_x_continuous(breaks = seq(min(resultats.foret$ncand), max(resultats.foret$ncand), by = 1))+
     labs(title = "Déviance moyenne OOB en fonction des hyperparamètres\nm et minbucket pour la forêt aléatoire", x="Nombre de variables candidates (m)",
          y="Déviance moyenne OOB", col="Minimum d'observations par feuille (minbucket) :")
@@ -539,13 +539,13 @@ Plusieurs hyperparamètres sont à déterminer :
 
 -   nombre d'itérations (*iter*).
 
-Les hyperparamètres *shrinkage* et *n.minobsinnode* ont été posés respectivement à 0.01 et 100. La valeur de *shrinkage* a été choisie de manière à prendre la plus petite valeur qui permet d'avoir un temps de calculs acceptable. La valeur de *n.minobsinnode* est choisie arbitrairement pour avoir une proportion d'observations minimale dans chaque feuille. Le choix de cette dernière n'est pas critique, car *max.depth* limite le surajustement.
+Les hyperparamètres *shrinkage* et *n.minobsinnode* ont été posés respectivement à 0.05 et 100. La valeur de *shrinkage* a été choisie de manière à prendre la plus petite valeur qui permet d'avoir un temps de calculs acceptable. La valeur de *n.minobsinnode* est choisie arbitrairement pour avoir une proportion d'observations minimale dans chaque feuille. Le choix de cette dernière n'est pas critique, car *max.depth* limite le surajustement.
 
 Pour optimiser *bag.fraction, iter* et *max.depth*, on étudie les valeurs suivantes :
 
--   $\text{max.depth} \in [3, 4, 5, 7, 9]$;
+-   $\text{max.depth} \in [1, 2, 3, 4, 5]$;
 
--   $\text{bag.fraction} \in [0.5, 0.65, 0.8]$.
+-   $\text{bag.fraction} \in [0.5, 0.75]$.
 
 Pour choisir la meilleure combinaison, on utilise la procédure suivante :
 
@@ -559,7 +559,9 @@ Pour choisir la meilleure combinaison, on utilise la procédure suivante :
 
 5.  Répéter les étapes 2, 3, et 4 avec une combinaison d'hyperparamètres différente, et ce, jusqu'à ce que toutes les combinaisons aient été testées.
 
-On peut étudier les résultats dans la figure 6 où il est possible de voir que la meilleure combinaison de *max.depth* et *bag.fraction* est de 3 et 0.65. Le nombre d'itérations optimal pour cette combinaison est 6873.
+6.  Illustrer les résultats (figure 6).
+
+On peut étudier les résultats dans la figure 6 où il est possible de voir que la meilleure combinaison de *max.depth* et *bag.fraction* est de 2 et 0.75. Le nombre d'itérations optimal pour cette combinaison est 1799.
 
 ```{r}
 set.seed(201)
@@ -661,13 +663,14 @@ bag.fraction <- c(0.5, 0.75)
 #         best.iter.cv=best.iter.cv
 #     ), "boost"
 # )
-
+# saveRDS(mod.boost, "boostcaret")
 boost <- readRDS("boost")
-mod.boost <- boost$mod.boost
+mod.boost <- readRDS("boostcaret")
+# mod.boost <- boost$mod.boost
 resultats.boost <- boost$resultats.boost
 best.iter.cv <- boost$best.iter.cv
 
-prev_test.boost <- predict(mod.boost, newdata = test,type = "response",
+prev_test.boost <- predict(mod.boost, newdata = test,
                            n.trees=best.iter.cv) * test$Expp
 deviance.boost <- dev.pois(prev_test.boost, test$Numtppd)
 ```
@@ -675,14 +678,14 @@ deviance.boost <- dev.pois(prev_test.boost, test$Numtppd)
 ```{r fig_optim_boost, fig.cap="Optimisation des hyperparamètres max.depth et bag.fractions (boosting)", fig.align = "center", fig.height=4}
 ggplot(resultats.boost, mapping = aes(x=depth, y=dev, col=factor(bag.frac))) +
     geom_point(size=2, alpha=0.6) + geom_line(linewidth=1) +
-    theme_classic() + theme(legend.position = "bottom") +
+    theme_bw() + theme(legend.position = "bottom") +
     labs(title = "Déviance de l'échantillon de validation en fonction de max.depth\net bag.fraction pour le boosting", x="Profondeur maximale des arbres (max.depth) ",
-         y="Déviance de l'échantillon de validation", col=" Proportion échantillons bootstrap (bag.fraction : ")
+         y="Déviance de l'échantillon de validation", col=" Proportion échantillons bootstrap (bag.fraction) : ")
 ```
 
 # Comparaison des modèles
 
-Dans cette section, on compare les modèles afin de choisir les deux plus performants pour la suite. La métrique choisie pour notre situation est la déviance Poisson. On présente donc dans la table 1 la déviance Poisson des différents modèles sur les données `test` non utilisées pour l’entraînement. Ce que la table 1 nous indique est que les meilleurs modèles selon la déviance sont : le modèle de base, le modèle *Lasso* et le modèle de *boosting*. Les autres modèles semblent nettement moins performants que ces trois deniers si on se fie à la métrique de déviance.
+Dans cette section, on compare les modèles afin de choisir les deux plus performants pour la suite. La métrique de choix pour notre situation est la déviance Poisson. On présente donc dans la table 1 la déviance Poisson des différents modèles sur les données `test` non utilisées pour l’entraînement. Ce que la table 1 nous indique est que les meilleurs modèles selon la déviance sont : le modèle de base, le modèle *Lasso* et le modèle de *boosting*. Les autres modèles semblent nettement moins performants que ces trois deniers si on se fie à la métrique de déviance.
 
 ```{r table deviance}
 dev.df <- data.frame(
@@ -695,16 +698,11 @@ dev.df <- data.frame(
         deviance.base, deviance.lasso, deviance.knn,
         deviance.arbre, deviance.bag,
         deviance.foret, deviance.boost
-    )),
-    "Ratio de perte" =round(sapply(list(
-        prev_test.base, prev_test.lasso, prev_test.knn,
-        prev_test.arbre, prev_test.bag,
-        prev_test.foret, prev_test.boost), sum
-    ) / sum(test$Numtppd), 2)
+    ))
 )
 dev.df <- dev.df[order(dev.df$Déviance), ]
 knitr::kable(dev.df, format = "markdown", row.names = FALSE, align = "c",
-             caption = "Métriques de performance sur l'échantillon test")
+             caption = "Déviance sur l'échantillon test")
 ```
 
 Dans la table 2, on compare les différents modèles avec l'indice de Gini. On observe que le modèle de *boosting* performe beaucoup mieux que tous les autres modèles. En effet, lorsqu'il n'est pas le modèle de référence, on voit qu'il trouve le plus de failles dans les modèles de référence. On peut conclure que c'est le cas, puisque le *boosting* possède toujours le plus grand coefficient de Gini. Au contraire, lorsque le *boosting* est le modèle de référence, les modèles utilisés en comparaison ne trouvent pas beaucoup de failles (coefficients de Gini petits). Bref, selon les coefficients de Gini, le *boosting* est de loin le meilleur modèle.
@@ -798,7 +796,7 @@ double_lift <- function(actual, ref, pred, mod.names, k=4, w){
         geom_line(aes(x=GROUPE, y=LR, col=Model), linewidth=1) +
         geom_hline(yintercept = 1, linewidth=0.4, col="black", alpha=0.65)+
         geom_bar(stat="identity", aes(x = GROUPE,  y=EU/scale),
-                 fill="grey", width=0.6, alpha=0.225, position = "dodge") +
+                 fill="grey", width=0.6, alpha=0.15, position = "dodge") +
         scale_y_continuous(
             name="Ratio de perte",
             sec.axis = sec_axis(~.*scale, name = "Exposition", )) +
@@ -810,9 +808,9 @@ double_lift <- function(actual, ref, pred, mod.names, k=4, w){
 }
 ```
 
-Dans la figure 7, on compare tous les modèles avec le modèle de référence GLM avec des diagrammes de leviers doubles. On observe que le modèle de référence (GLM) permet une meilleure segmentation que tous les autres modèles à l'exception du *boosting.* En effet, le modèle de *boosting* segmente beaucoup mieux les données que le modèle GLM. On remarque aussi que le modèle GLM et le modèle *Lasso* agissent de manière très similaire. Ceci est dû au fait que les deux modèles sont fortement corrélés ($\rho \approx  0.993$). Bref, le *boosting* est le meilleur, suivi du GLM et du *Lasso*. On conserve donc le *boosting* et le GLM, puisque le GLM est essentiellement le modèle *Lasso*, mais en plus simple.
+Dans la figure 7, on compare tous les modèles avec le modèle de référence GLM avec des diagrammes de leviers doubles. On observe que le modèle de référence (GLM) permet une meilleure segmentation que tous les autres modèles à l'exception du *boosting.* En effet, le modèle de *boosting* segmente beaucoup mieux les données que le modèle GLM. On remarque aussi que le modèle GLM et le modèle *Lasso* agissent de manière très similaire. Ceci est dû au fait que les deux modèles sont fortement corrélés ($\rho \approx 0.993$). Bref, le *boosting* est le meilleur, suivi du GLM et du *Lasso*. On conserve donc le *boosting* et le GLM, puisque le GLM est essentiellement le modèle *Lasso*, mais en plus simple.
 
-```{r, fig.cap="Comparaison des modèles", fig.align = "center", fig.height=6, message=FALSE}
+```{r, fig.cap="Comparaison des modèles", fig.align = "center", fig.height=7, message=FALSE}
 library(gridExtra)
 double_lift(actual = test$Numtppd, ref = prev_test.base,
             pred = list(prev_test.lasso, prev_test.boost, prev_test.foret,
@@ -826,13 +824,13 @@ double_lift(actual = test$Numtppd, ref = prev_test.base,
 
 ## GLM
 
-La variable `Bonus` est la plus importante. Son effet sur la prévision est intuitif, puisqu'à chaque fois que la variable augmente de 1, la prévision augmente d'environ 1.086. L'étendue de cette variable est [-50, 150]. Ceci donne une diminution de 41.7 % pour les meilleures personnes assurées et une augmentation de 405 % pour les pires conducteurs, le tout par rapport à un assuré qui a un `Bonus` de 0.
+Pour le GLM, la variable `Bonus` semble être la plus importante. Son effet sur la prévision est intuitif, puisqu'à chaque fois que la variable augmente de 1, la prévision augmente d'environ 1.086 %. L'étendue de cette variable est [-50, 150]. Ceci donne une diminution de la prévision de 41.7 % pour les meilleures personnes assurées et une augmentation de 405 % pour les pires conducteurs, le tout par rapport à un assuré qui a un `Bonus` de 0.
 
 Une autre variable importante est la puissance du véhicule. Lorsque le logarithme de la variable augmente de 1, la prévision augmente d'environ 79.9 %. La plus grande augmentation possible d'une prévision par rapport à la plus petite puissance est de 481 %.
 
 Les variables `Density` et `Poldur` ont un signal intuitif. À chaque fois que la densité de population augmente de 10, la prévision augmente d'environ 4.83 %. À chaque fois que l’ancienneté du client augmente de 1, la prévision diminue d’environ 2.60 %.
 
-Dans la figure 8 ci-dessous, on présente les différentiels des variables catégorielles. La variable `Type` est ordinale, comme prévu dans l'analyse exploratoire. La variable `Region` semble moins intéressante que prévu. La région R a un coefficient plus bas que les autres régions, alors qu'elle était la région la plus risquée dans l'analyse exploratoire. C'est certainement parce que la variable `Density` donne aussi de l'information sur le danger des régions. Pour la variable `Occupation`, l'élément à retenir est que les personnes retraitées sont classées comme étant moins dangereuses selon le modèle. Finalement, on remarque que les hommes sont plus impactés que les femmes, puisqu'ils sont beaucoup plus risqués que les femmes selon notre modèle.
+Dans la figure 8 ci-dessous, on présente les différentiels des variables catégorielles. La variable `Type` est ordinale, comme prévu dans l'analyse exploratoire. La variable `Region` semble moins intéressante que prévu. La région R a un coefficient plus bas que les autres régions, alors qu'elle était la région la plus risquée dans l'analyse exploratoire. C'est certainement parce que la variable `Density` donne aussi de l'information sur le danger de cette région. Pour la variable `Occupation`, l'élément à retenir est que les personnes retraitées sont classées comme étant vraiment moins dangereuses. Finalement, on remarque que les hommes sont plus impactés que les femmes, avec une augmentation de 41 % de la prévision pour les hommes.
 
 ```{r, fig.cap="Interprétation des variables catégorielles", fig.align = "center", fig.height=4}
 
@@ -857,7 +855,7 @@ ggplot(diff_dat, aes(y = differentiel, x = variables, fill = differentiel)) +
   geom_text(aes(label= round(differentiel, 2)))
 ```
 
-Finalement, on étudie l'effet de la variable `Age` sur la prévision. La figure 9 présente la proportion de la prévision d'un individu de 18 ans que quelqu'un d'un âge quelconque aurait si aucune autre variable change. Par exemple, on observe qu'un individu de 18 ans a 100 % de la prévision d'un individu de 18 ans, mais un individu de 70 ans a une prévision de 40 % la prévision d'un individu de 18 ans. Bref, la relation est complexe, mais globalement, plus une personne est vieille, plus sa prévision sera basse avec une légère hausse vers la fin pour les personnes très âgées.
+Finalement, on étudie l'effet de la variable `Age` sur la prévision. La figure 9 présente la proportion de la prévision d'un individu de 18 ans que quelqu'un d'un âge quelconque aurait si aucune autre variable change. Par exemple, on observe qu'un individu de 18 ans a 100 % de la prévision d'un individu de 18 ans, mais un individu de 70 ans a une prévision d'environ 45 % la prévision d'un individu de 18 ans. Bref, la relation est complexe, mais globalement, plus une personne est vieille, plus sa prévision sera basse avec une légère hausse vers la fin pour les personnes très âgées.
 
 ```{r, fig.cap="Interprétation de la variable age sur la prévision ", fig.align = "center", fig.height=4}
 coef <- coef(mod.base)
@@ -874,34 +872,96 @@ ggplot() + geom_line(aes(x=xx, y=yy), linewidth=1) + theme_bw() +
 
 ## Gradient Boosting
 
-```{r}
-predict.fun <- function(model, newdata){
-    newData_x <- test
-    predict(mod.boost, newdata = newdata,
-            type = "response", n.trees=best.iter.cv) * newdata$Expp 
-}
+On commence l'interprétation du modèle de *boosting* en regardant l'importance des variables. La figure 10 présente une interprétation graphique des variables les plus importantes du modèle. Ce qu'on voit c'est que la variable `Bonus` est de loin la variable la plus importante. Ceci est assez logique étant donné que c'est une variable d'expérience. Par la suite, on retrouve les variables `Age` et `Density` qui semblent être sur un même seuil d'importance. Finalement, la variable `Power` tire un peu de la patte, mais elle semble tout de même importante dans le modèle.
 
-boost.iml <- Predictor$new(
-  model = mod.boost,
-  data = test[, -11],
-  y = test$Numtppd,
-  predict.fun = predict.fun,
-  class = "regression"
-  )
-```
-
-```{r message=FALSE, warning=FALSE}
-boost.imp <- iml::FeatureImp$new(boost.iml, loss = "ce", compare = "difference",
-                                 n.repetitions = 1)
+```{r, fig.cap="Importance des variables dans le modèle de boosting", fig.align = "center", fig.height=4.25}
+plot(caret::varImp(mod.boost), main="Importance des variables")
 ```
 
 ```{r}
-plot(boost.imp)
+set.seed(1244)
+mod.iml <- iml::Predictor$new(mod.boost)
+# pdp.bonus <- iml::FeatureEffect$new(mod.iml, "Bonus", method = "pdp",
+#                                     grid.size = 10)
+# pdp.age <- iml::FeatureEffect$new(mod.iml, "Age", method = "pdp",
+#                                     grid.size = 50)
+# pdp.density <- iml::FeatureEffect$new(mod.iml, "Density", method = "pdp",
+#                                     grid.size = 20)
+# pdp.power <- iml::FeatureEffect$new(mod.iml, "Power", method = "pdp",
+#                                     grid.size = 10)
 ```
+
+```{r}
+set.seed(508)
+ech.iml <- train.dat[sample(85000, 35000), ]
+mod.iml.inter <- iml::Predictor$new(mod.boost, data = ech.iml)
+# int.bonus <- Interaction$new(mod.iml.inter, "Bonus", grid.size = 20)
+# int.density<- Interaction$new(mod.iml.inter, "Density", grid.size = 20)
+```
+
+```{r}
+# saveRDS(list(
+#     pdp.bonus=pdp.bonus,
+#     pdp.age=pdp.age,
+#     pdp.density=pdp.density,
+#     pdp.power=pdp.power
+# ), "boost.effect")
+# saveRDS(int.density, "interdensity")
+int.density <- readRDS("interdensity")
+boost.effect <- readRDS("boost.effect")
+pdp.bonus <- boost.effect$pdp.bonus
+pdp.age <- boost.effect$pdp.age
+pdp.density <- boost.effect$pdp.density
+pdp.power <- boost.effect$pdp.power
+```
+
+Pour mieux comprendre l'effet des variables importante, on trace les diagrammes de dépendance partielle (PDP) dans la figure 11. Dans l'ensemble, le lien entre les variables importantes et la prévision semble logique. Par exemple, la variable `Bonus` semble avoir un effet croissant et monotone sur la prévision. On remarque également que le graphique de la variable `Age` ressemble fortement à la figure 9. C'est donc intéressant de voir que le GLM et le modèle de *boosting* ailles capté un signal très similaire. Un élément un peu moins agréable ici, c'est de voir que la variable `Density` ne semble par avoir un lien monotone avec la prévision. Cet élément nui à interopérabilité du modèle, mais la tendance générale (pour des valeurs faibles ou moyennes de `Density`) reste de se dire qu'une augmentation de la densité de population devrait faire augmenter la prévision. Finalement le lien entre la prévision et la variable de la puissance du moteur apparaît monotone et croissant. Le lien apparaît même approximativement linéaire. Il importe cependant de se rappeller que ce qui est présenté dans la fiigure 9 reste la tendance moyenne. Il est possible que pour des cas individuelle, les relations soient très différente si plusieurs intéractions sont présentes.
+
+```{r, fig.cap="Diagrammes de dépendance partielle (boosting)", fig.align = "center", fig.height=4.25}
+plot.bonus <- ggplot(pdp.bonus$results, aes(x=Bonus, y=.value)) +
+    geom_line(linewidth=1) +
+    theme_bw() + labs(
+        title = "Variable Bonus (PDP)", y="Prévision"
+    )
+plot.age <- ggplot(pdp.age$results, aes(x=Age, y=.value)) +
+    geom_line(linewidth=1) +
+    theme_bw() + labs(
+        title = "Variable Age (PDP)", y="Prévision"
+    )
+plot.density <- ggplot(pdp.density$results, aes(x=Density, y=.value)) +
+    geom_line(linewidth=1) +
+    theme_bw() + labs(
+        title = "Variable Density (PDP)", y="Prévision"
+    )
+plot.power <- ggplot(pdp.power$results, aes(x=Power, y=.value)) +
+    geom_line(linewidth=1) +
+    theme_bw() + labs(
+        title = "Variable Power (PDP)", y="Prévision"
+    )
+gridExtra::grid.arrange(plot.bonus, plot.age, plot.density, plot.power,
+                        ncol = 2, nrow = 2)
+```
+
+Pour ce qui est des interactions, on se limite aux variables les plus importantes. On procède en calculant des statistiques de Friedman sur un échantillon de 35 000 observations. La table 3 permet de mettre en lumière l'interaction entre la densité de population et la variable d'expérience on remarque également une interaction entre l'âge et la densité de population. Il ne faut pas oublier que l'aspect stochastique de la procédure pourrait venir fausser nos conclusions, mais on retient que les variables interagissent fortement entre elles. Ces interactions sont cependant très difficiles à déchiffrer, on décide donc de s'arrêter ici.
+
+```{r}
+df <- int.density$results
+df <- df[order(df$.interaction, decreasing = T), ][1:2]
+knitr::kable(df, format = "markdown", row.names = FALSE, align = "c",
+             caption = "Détection d'interactions avec la var. Density", digits = 3, col.names = c("Interaction", "Statistique H estimée"))
+```
+
+## Résumé
+
+Bref, on a vu que le GLM est très facilement interprétable et qu'il présente une performance relativement bonne. Cependant, le modèle de *boosting* reste la meilleure alternative en terme de segmentation du risque et de performance en terme de métrique comme la déviance Poisson. On a essayé d'interprété ce modèle en analysant les variables les plus importantes et en détectant deux interactions. On a donc réussit à se faire une bonne idée du fonctionnement de cet outil, mais il reste malheureusement moins interprétable et prévisible qu'un modèle linéaire généralisée. Il n'y donc pas de solution parfaite, mais le *boosting* de gradient stochastique apparaît comme la meilleure solution.
 
 # Conclusion
 
-Après notre analyse, nous recommandons le modèle de *boosting* de gradient stochastique. Nous sommes satisfaits de ce modèle, puisqu'il dépasse tous les autres de beaucoup en performance. Un autre modèle envisageable pourrait être un GLM avec des interactions. Ces interactions seraient trouvées en regardant les interactions les plus significatives dans le modèle de *boosting* de gradient stochastique. La prochaine étape du problème serait de modéliser la sévérité afin de pouvoir l'appliquer en tarification en assurance automobile.
+Après notre analyse, nous recommandons le modèle de *boosting* de gradient stochastique. Nous sommes satisfaits de ce modèle, puisqu'il performe beaucoup mieux que les autres modèles pour segmenter les risques. Celui-ci est idéal pour offrir des primes justes qui évitent l'antisélection.
+
+On a également vu que notre GLM n'était pas mauvais. On pourrait donc envisager d'utiliser notre interprétation du modèle de *boosting* pour créer un GLM encore plus performant. On pourrait par exemple, inclure des interactions avec les interactions les plus significatives dans le modèle de *boosting*. Le but serait de s'approcher d'un modèle aussi performant que le *boosting*, mais avec tous les avantages d'interprétation d'un GLM.
+
+Finalement, la prochaine étape du problème serait de modéliser la sévérité afin de pouvoir calculer des primes pures pour un portefeuille d'assurées.
 
 # Bibliographie
 
